@@ -1,13 +1,14 @@
 mod config;
+mod db;
 mod notify;
 
 use config::Config;
+use db::compute_loudness;
 use notify::send_system_notification;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rodio::{Decoder, OutputStream, Sink};
 use std::io::Cursor;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 // Embedded alert sound
 const ALERT_OGG: &[u8] = include_bytes!("../assets/alert.ogg");
@@ -36,7 +37,9 @@ fn main() {
     let device = host
         .default_input_device()
         .expect("No input device available");
-    let device_config = device.default_input_config().unwrap();
+    let device_config = device
+        .default_input_config()
+        .expect("Failed to get default input config");
 
     let mut last_alert = Instant::now();
 
@@ -44,17 +47,8 @@ fn main() {
         .build_input_stream(
             &device_config.into(),
             move |data: &[f32], _| {
-                // Calculate RMS (Root Mean Square)
-                let rms = data.iter().map(|s| s * s).sum::<f32>().sqrt();
-
-                // Calculate Peak amplitude
-                let peak = data.iter().cloned().fold(0.0_f32, f32::max);
-
-                // Hybrid metric combining RMS and Peak
-                let hybrid_metric = (1.0 - config.sensitivity) * rms + config.sensitivity * peak;
-
-                // Convert hybrid metric to dB
-                let db = 20.0 * hybrid_metric.max(1e-10).log10();
+                let (rms, peak, hybrid_metric, db) =
+                    compute_loudness(data, config.sensitivity);
 
                 // Print debug info
                 if config.verbose > 0 {
@@ -66,27 +60,30 @@ fn main() {
 
                 // Trigger alert if dB exceeds threshold
                 if db > config.decibel_threshold
-                    && last_alert.elapsed().as_secs() > config.alert_frequency
+                    && last_alert.elapsed().as_secs() >= config.alert_frequency
                 {
                     println!(
                         "Shhh! RMS: {:.5}, Peak: {:.5}, Hybrid: {:.5}, dB: {:.2}",
                         rms, peak, hybrid_metric, db
                     );
-                    play_alert();
-                    if config.notify {
-                        send_system_notification();
-                    }
+                    let notify = config.notify;
+                    std::thread::spawn(move || {
+                        play_alert();
+                        if notify {
+                            send_system_notification();
+                        }
+                    });
                     last_alert = Instant::now();
                 }
             },
             move |err| eprintln!("Stream error: {}", err),
             None,
         )
-        .unwrap();
+        .expect("Failed to build input stream");
 
-    stream.play().unwrap();
+    stream.play().expect("Failed to start input stream");
 
-    loop {
-        sleep(Duration::from_millis(100));
-    }
+    // Park the main thread indefinitely. If graceful shutdown is needed
+    // later (e.g. flushing state), consider the `ctrlc` crate instead.
+    std::thread::park();
 }
