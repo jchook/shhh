@@ -1,0 +1,23 @@
+# Shhh! configuration
+# https://github.com/jchook/shhh
+#
+# Config file locations:
+#   Linux:   ~/.config/shhh/shhh.toml
+#   macOS:   ~/Library/Application Support/shhh/shhh.toml
+#   Windows: C:\Users\<User>\AppData\Roaming\shhh\shhh.toml
+
+# Decibel threshold to trigger an alert.
+# Run `shhh calibrate` to find the right value for your setup.
+# decibel_threshold = -35.0
+
+# Seconds between successive alerts.
+# alert_frequency = 1
+
+# Sensitivity: 0.0 = pure RMS (sustained loudness), 1.0 = pure peak (spikes).
+# sensitivity = 0.8
+
+# Enable system notifications (Linux/macOS/Windows).
+# notify = true
+
+# Verbosity level (0 = quiet, 1+ = debug output).
+# verbose = 0

@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -45,11 +45,13 @@ pub enum Command {
         #[arg(short, long, default_value = "3")]
         duration: u64,
     },
+    /// Create a default config file
+    Init,
 }
 
 /// Settings that can be specified in a TOML config file.
 /// All fields are optional so partial configs are valid.
-#[derive(Deserialize, Serialize, Default)]
+#[derive(Deserialize, Default)]
 pub struct FileConfig {
     pub alert_frequency: Option<u64>,
     pub decibel_threshold: Option<f32>,
@@ -114,6 +116,8 @@ impl Config {
     }
 }
 
+const DEFAULT_CONFIG: &str = include_str!("../etc/config.default.toml");
+
 impl FileConfig {
     pub fn load(path: &PathBuf) -> Option<Self> {
         let contents = match fs::read_to_string(path) {
@@ -129,12 +133,31 @@ impl FileConfig {
         }
     }
 
-    pub fn save(&self, path: &PathBuf) -> io::Result<()> {
+    /// Initialize a default config file. Returns Err if it already exists.
+    pub fn init(path: &PathBuf) -> io::Result<()> {
+        if path.exists() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("{} already exists", path.display()),
+            ));
+        }
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let contents = toml::to_string_pretty(self)
-            .expect("Failed to serialize config");
-        fs::write(path, contents)
+        fs::write(path, DEFAULT_CONFIG)
+    }
+
+    /// Update a single key in the config file, preserving comments and formatting.
+    /// If the file doesn't exist, creates one from the default template first.
+    pub fn set_value(path: &PathBuf, key: &str, value: f32) -> io::Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let contents = fs::read_to_string(path).unwrap_or_else(|_| DEFAULT_CONFIG.to_string());
+        let mut doc = contents
+            .parse::<toml_edit::DocumentMut>()
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        doc[key] = toml_edit::value(value as f64);
+        fs::write(path, doc.to_string())
     }
 }

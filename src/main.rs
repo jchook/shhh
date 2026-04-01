@@ -3,7 +3,7 @@ mod config;
 mod db;
 mod notify;
 
-use config::{Command, Config};
+use config::{Command, Config, FileConfig};
 use db::compute_loudness;
 use notify::send_system_notification;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -31,9 +31,26 @@ fn play_alert() {
 fn main() {
     let (config, command) = Config::load();
 
-    if let Some(Command::Calibrate { duration }) = command {
-        calibrate::run(&config, duration);
-        return;
+    match command {
+        Some(Command::Calibrate { duration }) => {
+            calibrate::run(&config, duration);
+            return;
+        }
+        Some(Command::Init) => {
+            let Some(path) = Config::config_path() else {
+                eprintln!("Could not determine config directory");
+                std::process::exit(1);
+            };
+            match FileConfig::init(&path) {
+                Ok(()) => println!("Created {}", path.display()),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                }
+            }
+            return;
+        }
+        None => {}
     }
 
     println!(

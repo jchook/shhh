@@ -1,6 +1,6 @@
 [package]
 name = "shhh"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Wes Roberts <takq@a.zinc.email>"]
 edition = "2021"
 description = "Get alerts when you are too loud"
@@ -25,4 +25,5 @@ notify-rust = "4"
 rodio = "0.20.1"
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.0"
+toml_edit = "0.25.9"
 
