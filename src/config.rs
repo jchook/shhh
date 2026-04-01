@@ -189,3 +189,69 @@ impl FileConfig {
         fs::write(path, doc.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn load_full_config() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        write!(
+            tmp,
+            r#"
+alert_frequency = 5
+decibel_threshold = -30.0
+sensitivity = 0.6
+notify = false
+verbose = 2
+device = "Blue Yeti"
+alert = "/tmp/beep.wav"
+"#
+        )
+        .unwrap();
+
+        let cfg = FileConfig::load(&tmp.path().to_path_buf()).unwrap();
+        assert_eq!(cfg.alert_frequency, Some(5));
+        assert_eq!(cfg.decibel_threshold, Some(-30.0));
+        assert_eq!(cfg.sensitivity, Some(0.6));
+        assert_eq!(cfg.notify, Some(false));
+        assert_eq!(cfg.verbose, Some(2));
+        assert_eq!(cfg.device.as_deref(), Some("Blue Yeti"));
+        assert_eq!(cfg.alert.as_deref(), Some("/tmp/beep.wav"));
+    }
+
+    #[test]
+    fn load_partial_config() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        write!(tmp, "decibel_threshold = -40.0\n").unwrap();
+
+        let cfg = FileConfig::load(&tmp.path().to_path_buf()).unwrap();
+        assert_eq!(cfg.decibel_threshold, Some(-40.0));
+        assert_eq!(cfg.alert_frequency, None);
+        assert_eq!(cfg.sensitivity, None);
+        assert_eq!(cfg.device, None);
+    }
+
+    #[test]
+    fn load_empty_file() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let cfg = FileConfig::load(&tmp.path().to_path_buf()).unwrap();
+        assert_eq!(cfg.alert_frequency, None);
+        assert_eq!(cfg.sensitivity, None);
+    }
+
+    #[test]
+    fn load_invalid_toml_returns_none() {
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        write!(tmp, "this is not valid {{{{ toml !@#$").unwrap();
+        assert!(FileConfig::load(&tmp.path().to_path_buf()).is_none());
+    }
+
+    #[test]
+    fn load_missing_file_returns_none() {
+        let path = PathBuf::from("/tmp/shhh_nonexistent_test_config.toml");
+        assert!(FileConfig::load(&path).is_none());
+    }
+}
