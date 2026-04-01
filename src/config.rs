@@ -1,8 +1,12 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
+
+const DEFAULT_ALERT_FREQUENCY: u64 = 1;
+const DEFAULT_DECIBEL_THRESHOLD: f32 = -35.0;
+const DEFAULT_SENSITIVITY: f32 = 0.8;
 
 /// Shhh! Get alerts when you are too loud.
 #[derive(Parser)]
@@ -27,6 +31,19 @@ struct CliArgs {
     /// Verbosity level
     #[arg(short, long, env = "SHHH_VERBOSE")]
     verbose: Option<i32>,
+
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+#[derive(Subcommand)]
+pub enum Command {
+    /// Listen to your environment and suggest a threshold
+    Calibrate {
+        /// Seconds to listen during each phase
+        #[arg(short, long, default_value = "3")]
+        duration: u64,
+    },
 }
 
 /// Settings that can be specified in a TOML config file.
@@ -52,14 +69,14 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load() -> Self {
+    pub fn load() -> (Self, Option<Command>) {
         let cli = CliArgs::parse();
         let file = Self::load_file();
 
         let sensitivity = cli
             .sensitivity
             .or(file.sensitivity)
-            .unwrap_or(0.8);
+            .unwrap_or(DEFAULT_SENSITIVITY);
 
         if !(0.0..=1.0).contains(&sensitivity) {
             eprintln!(
@@ -68,19 +85,24 @@ impl Config {
             );
         }
 
-        Self {
-            alert_frequency: cli.alert_frequency.or(file.alert_frequency).unwrap_or(1),
+        let config = Self {
+            alert_frequency: cli
+                .alert_frequency
+                .or(file.alert_frequency)
+                .unwrap_or(DEFAULT_ALERT_FREQUENCY),
             decibel_threshold: cli
                 .decibel_threshold
                 .or(file.decibel_threshold)
-                .unwrap_or(-10.0),
+                .unwrap_or(DEFAULT_DECIBEL_THRESHOLD),
             sensitivity: sensitivity.clamp(0.0, 1.0),
             notify: cli.notify.or(file.notify).unwrap_or(true),
             verbose: cli.verbose.or(file.verbose).unwrap_or(0),
-        }
+        };
+
+        (config, cli.command)
     }
 
-    fn config_path() -> Option<PathBuf> {
+    pub fn config_path() -> Option<PathBuf> {
         ProjectDirs::from("", "", "shhh").map(|dirs| dirs.config_dir().join("shhh.toml"))
     }
 

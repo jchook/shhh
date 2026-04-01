@@ -1,8 +1,9 @@
+mod calibrate;
 mod config;
 mod db;
 mod notify;
 
-use config::Config;
+use config::{Command, Config};
 use db::compute_loudness;
 use notify::send_system_notification;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -28,7 +29,13 @@ fn play_alert() {
 }
 
 fn main() {
-    let config = Config::load();
+    let (config, command) = Config::load();
+
+    if let Some(Command::Calibrate { duration }) = command {
+        calibrate::run(&config, duration);
+        return;
+    }
+
     println!(
         "Threshold: {:.1}, Frequency: {:.1}, Sensitivity: {:.1}",
         config.decibel_threshold, config.alert_frequency, config.sensitivity,
