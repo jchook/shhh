@@ -25,18 +25,6 @@ cargo install shhh
 Getting Started
 ---------------
 
-Generate a default config file:
-
-```sh
-shhh init
-```
-
-Select your input device:
-
-```sh
-shhh devices
-```
-
 Calibrate for your microphone and environment:
 
 ```sh
@@ -47,6 +35,22 @@ Then just run it:
 
 ```sh
 shhh
+```
+
+
+Advanced Usage
+--------------
+
+Generate a commented config file:
+
+```sh
+shhh init
+```
+
+Select a specific input device:
+
+```sh
+shhh devices
 ```
 
 
@@ -71,6 +75,16 @@ Run `shhh --help` for all available options.
 | `verbose` | `-v` | `SHHH_VERBOSE` | 0 | Verbosity level |
 | `device` | `-d` | `SHHH_DEVICE` | | Input device (substring match) |
 | `alert` | `-a` | `SHHH_ALERT` | | Custom alert sound (WAV, FLAC, OGG, MP3) |
+
+
+Linux Note
+----------
+
+Audio on Linux currently goes through ALSA, which works for most setups via
+PulseAudio/PipeWire compatibility layers. Device names may appear as raw ALSA
+identifiers. Native PipeWire and PulseAudio support is coming in an upcoming
+release of [cpal](https://github.com/RustAudio/cpal), which will bring cleaner
+device names and better integration.
 
 
 License
