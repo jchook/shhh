@@ -31,6 +31,12 @@ Generate a default config file:
 shhh init
 ```
 
+Select your input device:
+
+```sh
+shhh devices
+```
+
 Calibrate for your microphone and environment:
 
 ```sh
@@ -63,6 +69,8 @@ Run `shhh --help` for all available options.
 | `sensitivity` | `-s` | `SHHH_SENSITIVITY` | 0.8 | 0 = sustained loudness, 1 = spikes |
 | `notify` | `-n` | `SHHH_NOTIFY` | true | Enable system notifications |
 | `verbose` | `-v` | `SHHH_VERBOSE` | 0 | Verbosity level |
+| `device` | `-d` | `SHHH_DEVICE` | | Input device (substring match) |
+| `alert` | `-a` | `SHHH_ALERT` | | Custom alert sound (WAV, FLAC, OGG, MP3) |
 
 
 License
