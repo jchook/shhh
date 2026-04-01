@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, FileConfig};
 use crate::db::compute_loudness;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::io::{self, Write};
@@ -103,6 +103,28 @@ pub fn run(config: &Config, duration: u64) {
         );
         println!();
         println!("    {CYAN}decibel_threshold = {:.1}{RESET}", threshold);
+
+        println!();
+        println!("{DIM}{DIVIDER}{RESET}");
+        println!();
+        print!(
+            "  Save to config file? {BOLD}{CYAN}(y/N){RESET} "
+        );
+        io::stdout().flush().unwrap();
+        let mut answer = String::new();
+        io::stdin().read_line(&mut answer).unwrap();
+        println!();
+
+        if answer.trim().eq_ignore_ascii_case("y") {
+            let mut file_config = FileConfig::load(&path).unwrap_or_default();
+            file_config.decibel_threshold = Some(threshold);
+            match file_config.save(&path) {
+                Ok(()) => println!("  {GREEN}✓{RESET}  Saved to {DIM}{}{RESET}", path.display()),
+                Err(e) => eprintln!("  {RED}✗{RESET}  Failed to save: {}", e),
+            }
+        } else {
+            println!("  {DIM}Skipped.{RESET}");
+        }
     }
     println!();
 }

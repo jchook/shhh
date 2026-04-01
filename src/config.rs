@@ -1,7 +1,8 @@
 use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io;
 use std::path::PathBuf;
 
 const DEFAULT_ALERT_FREQUENCY: u64 = 1;
@@ -48,13 +49,13 @@ pub enum Command {
 
 /// Settings that can be specified in a TOML config file.
 /// All fields are optional so partial configs are valid.
-#[derive(Deserialize, Default)]
-struct FileConfig {
-    alert_frequency: Option<u64>,
-    decibel_threshold: Option<f32>,
-    sensitivity: Option<f32>,
-    notify: Option<bool>,
-    verbose: Option<i32>,
+#[derive(Deserialize, Serialize, Default)]
+pub struct FileConfig {
+    pub alert_frequency: Option<u64>,
+    pub decibel_threshold: Option<f32>,
+    pub sensitivity: Option<f32>,
+    pub notify: Option<bool>,
+    pub verbose: Option<i32>,
 }
 
 /// Resolved configuration exposed to the rest of the app.
@@ -107,18 +108,33 @@ impl Config {
     }
 
     fn load_file() -> FileConfig {
-        let Some(path) = Self::config_path() else {
-            return FileConfig::default();
-        };
-        let Ok(contents) = fs::read_to_string(&path) else {
-            return FileConfig::default();
+        Self::config_path()
+            .and_then(|p| FileConfig::load(&p))
+            .unwrap_or_default()
+    }
+}
+
+impl FileConfig {
+    pub fn load(path: &PathBuf) -> Option<Self> {
+        let contents = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => return None,
         };
         match toml::from_str(&contents) {
-            Ok(cfg) => cfg,
+            Ok(cfg) => Some(cfg),
             Err(e) => {
                 eprintln!("Warning: failed to parse {}: {}", path.display(), e);
-                FileConfig::default()
+                None
             }
         }
+    }
+
+    pub fn save(&self, path: &PathBuf) -> io::Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let contents = toml::to_string_pretty(self)
+            .expect("Failed to serialize config");
+        fs::write(path, contents)
     }
 }
