@@ -24,25 +24,6 @@ pub fn run(config: &Config, duration: u64) {
     println!("{DIM}{DIVIDER}{RESET}");
     println!();
 
-    // Phase 1: ambient noise
-    println!("{BOLD}{WHITE}  🤫  STAY QUIET{RESET}");
-    println!();
-    if !prompt::wait_for_enter(&format!(
-        "  Press {BOLD}{CYAN}[ENTER]{RESET} to measure ambient noise... "
-    )) {
-        println!();
-        return;
-    }
-    println!();
-    let ambient_db = measure(&device, &device_config, sensitivity, duration);
-    println!();
-    println!("  Ambient level: {BOLD}{GREEN}{:.1} dB{RESET}", ambient_db);
-
-    println!();
-    println!("{DIM}{DIVIDER}{RESET}");
-    println!();
-
-    // Phase 2: speech
     println!("{BOLD}{WHITE}  🗨️   SPEAK NORMALLY{RESET}");
     println!();
     if !prompt::wait_for_enter(&format!(
@@ -54,21 +35,15 @@ pub fn run(config: &Config, duration: u64) {
     println!();
     let speech_db = measure(&device, &device_config, sensitivity, duration);
     println!();
-    println!("  Speech level:  {BOLD}{GREEN}{:.1} dB{RESET}", speech_db);
+    println!("  Speech level: {BOLD}{GREEN}{:.1} dB{RESET}", speech_db);
 
     println!();
     println!("{DIM}{DIVIDER}{RESET}");
     println!();
 
-    if speech_db <= ambient_db {
-        println!("  {BOLD}{RED}Speech was not louder than ambient noise.{RESET}");
-        println!("  Try again in a quieter environment.");
-        println!();
-        return;
-    }
-
-    // Set threshold halfway between ambient and speech (in dB space)
-    let threshold = (ambient_db + speech_db) / 2.0;
+    // Set threshold 3 dB above normal speech peak.
+    // 3 dB ≈ doubling of sound energy — a noticeable increase over normal volume.
+    let threshold = speech_db + 3.0;
     println!(
         "  {BOLD}{WHITE}✅  Recommended threshold: {YELLOW}{:.1}{RESET}",
         threshold
@@ -163,11 +138,12 @@ fn measure(
     }
 
     // Clear the live line
-    let peak = *peak_db.lock().unwrap();
     print!("\r                                                                        \r");
     io::stdout().flush().unwrap();
 
     drop(stream);
+
+    let peak = *peak_db.lock().unwrap();
     peak
 }
 
