@@ -64,7 +64,10 @@ pub fn run(verbose: bool) {
     println!();
     println!("{DIM}{DIVIDER}{RESET}");
     println!();
-    print!("  Select a device {BOLD}{CYAN}(1-{}){RESET} or press {BOLD}{CYAN}[ENTER]{RESET} to skip: ", devices.len());
+    print!(
+        "  Select a device {BOLD}{CYAN}(1-{}){RESET} or press {BOLD}{CYAN}[ENTER]{RESET} to skip: ",
+        devices.len()
+    );
     io::stdout().flush().unwrap();
 
     let Some(answer) = prompt::read_line() else {
@@ -101,7 +104,11 @@ pub fn run(verbose: bool) {
     match FileConfig::set_value_str(&path, "device", chosen) {
         Ok(()) => {
             println!();
-            println!("  {GREEN}✓{RESET}  Saved device \"{}\" to {DIM}{}{RESET}", chosen, path.display());
+            println!(
+                "  {GREEN}✓{RESET}  Saved device \"{}\" to {DIM}{}{RESET}",
+                chosen,
+                path.display()
+            );
         }
         Err(e) => eprintln!("  {RED}✗{RESET}  Failed to save: {}", e),
     }

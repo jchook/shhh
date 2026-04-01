@@ -36,10 +36,7 @@ pub fn run(config: &Config, duration: u64) {
     println!();
     let ambient_db = measure(&device, &device_config, sensitivity, duration);
     println!();
-    println!(
-        "  Ambient level: {BOLD}{GREEN}{:.1} dB{RESET}",
-        ambient_db
-    );
+    println!("  Ambient level: {BOLD}{GREEN}{:.1} dB{RESET}", ambient_db);
 
     println!();
     println!("{DIM}{DIVIDER}{RESET}");
@@ -64,9 +61,7 @@ pub fn run(config: &Config, duration: u64) {
     println!();
 
     if speech_db <= ambient_db {
-        println!(
-            "  {BOLD}{RED}Speech was not louder than ambient noise.{RESET}"
-        );
+        println!("  {BOLD}{RED}Speech was not louder than ambient noise.{RESET}");
         println!("  Try again in a quieter environment.");
         println!();
         return;
@@ -102,9 +97,7 @@ pub fn run(config: &Config, duration: u64) {
         println!();
         println!("{DIM}{DIVIDER}{RESET}");
         println!();
-        print!(
-            "  Save to config file? {BOLD}{CYAN}(y/N){RESET} "
-        );
+        print!("  Save to config file? {BOLD}{CYAN}(y/N){RESET} ");
         io::stdout().flush().unwrap();
         let answer = prompt::read_line().unwrap_or_default();
         println!();
@@ -199,4 +192,3 @@ fn level_bar(db: f32) -> String {
         "░".repeat(empty),
     )
 }
-

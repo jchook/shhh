@@ -1,17 +1,17 @@
 mod audio;
 mod calibrate;
 mod config;
-mod loudness;
 mod devices;
+mod loudness;
 mod notify;
 mod prompt;
 mod style;
 
 use audio::get_input_device;
 use config::{Command, Config, FileConfig};
+use cpal::traits::{DeviceTrait, StreamTrait};
 use loudness::compute_loudness;
 use notify::send_system_notification;
-use cpal::traits::{DeviceTrait, StreamTrait};
 use rodio::{Decoder, OutputStream, Sink};
 use std::io::Cursor;
 use std::time::Instant;
@@ -100,8 +100,7 @@ fn main() {
         .build_input_stream(
             &device_config.into(),
             move |data: &[f32], _| {
-                let (rms, peak, hybrid_metric, db) =
-                    compute_loudness(data, config.sensitivity);
+                let (rms, peak, hybrid_metric, db) = compute_loudness(data, config.sensitivity);
 
                 if config.verbose > 0 {
                     println!(
