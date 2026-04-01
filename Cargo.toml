@@ -2,7 +2,7 @@
 name = "shhh"
 version = "1.1.0"
 authors = ["Wes Roberts <takq@a.zinc.email>"]
-edition = "2021"
+edition = "2024"
 description = "Get alerts when you are too loud"
 keywords = ["sound", "monitoring", "alert"]
 categories = ["command-line-utilities"]

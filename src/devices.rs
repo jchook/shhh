@@ -17,48 +17,14 @@ fn is_primary_device(name: &str) -> bool {
     !name.contains(':')
 }
 
-/// Run a closure with stderr silenced (Linux only, no-op elsewhere).
-/// ALSA spams harmless errors during device enumeration.
-fn with_stderr_silenced<T>(f: impl FnOnce() -> T) -> T {
-    #[cfg(target_os = "linux")]
-    unsafe {
-        use std::os::raw::c_int;
-        extern "C" {
-            fn dup(fd: c_int) -> c_int;
-            fn dup2(oldfd: c_int, newfd: c_int) -> c_int;
-            fn open(path: *const u8, flags: c_int) -> c_int;
-            fn close(fd: c_int) -> c_int;
-        }
-        let backup = dup(2);
-        let devnull = open(b"/dev/null\0".as_ptr(), 2);
-        if devnull >= 0 {
-            dup2(devnull, 2);
-            close(devnull);
-        }
-        let result = f();
-        if backup >= 0 {
-            dup2(backup, 2);
-            close(backup);
-        }
-        result
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        f()
-    }
-}
-
 pub fn run(verbose: bool) {
-    let (default_name, all_devices) = with_stderr_silenced(|| {
-        let host = cpal::default_host();
-        let default = host.default_input_device().and_then(|d| d.name().ok());
-        let devices: Vec<_> = host
-            .input_devices()
-            .expect("Failed to enumerate devices")
-            .filter_map(|d| d.name().ok())
-            .collect();
-        (default, devices)
-    });
+    let host = cpal::default_host();
+    let default_name = host.default_input_device().and_then(|d| d.name().ok());
+    let all_devices: Vec<_> = host
+        .input_devices()
+        .expect("Failed to enumerate devices")
+        .filter_map(|d| d.name().ok())
+        .collect();
 
     let devices: Vec<_> = if verbose {
         all_devices

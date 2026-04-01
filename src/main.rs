@@ -24,11 +24,14 @@ fn play_alert() {
     let sink = Sink::try_new(&stream_handle).expect("Failed to create Sink");
 
     let cursor = Cursor::new(ALERT_OGG);
-    if let Ok(source) = Decoder::new(cursor) {
-        sink.append(source);
-        sink.sleep_until_end();
-    } else {
-        println!("Failed to decode alert sound file");
+    match Decoder::new(cursor) {
+        Ok(source) => {
+            sink.append(source);
+            sink.sleep_until_end();
+        }
+        Err(_) => {
+            println!("Failed to decode alert sound file");
+        }
     }
 }
 
