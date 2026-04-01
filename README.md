@@ -10,12 +10,14 @@ About
 This app monitors the microphone input on your computer and plays a "SHHH!" sound when you exceed a certain decibel threshold.
 
 
-Download
---------
+Install
+-------
 
-You can find binaries in the [releases](https://github.com/jchook/shhh/releases) section.
+Download the binary for your platform and add it to your PATH:
 
-If you have `cargo` installed, you can install it via crates.io:
+* [Latest release](https://github.com/jchook/shhh/releases)
+
+**OR**, if you have the [Rust toolchain](https://rustup.rs/) installed:
 
 ```sh
 cargo install shhh
