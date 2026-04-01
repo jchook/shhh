@@ -33,6 +33,10 @@ struct CliArgs {
     #[arg(short, long, env = "SHHH_VERBOSE")]
     verbose: Option<i32>,
 
+    /// Input device name (substring match)
+    #[arg(short, long, env = "SHHH_DEVICE")]
+    device: Option<String>,
+
     #[command(subcommand)]
     pub command: Option<Command>,
 }
@@ -47,6 +51,12 @@ pub enum Command {
     },
     /// Create a default config file
     Init,
+    /// List available input devices
+    Devices {
+        /// Show all devices (including low-level ALSA variants)
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 /// Settings that can be specified in a TOML config file.
@@ -58,17 +68,19 @@ pub struct FileConfig {
     pub sensitivity: Option<f32>,
     pub notify: Option<bool>,
     pub verbose: Option<i32>,
+    pub device: Option<String>,
 }
 
 /// Resolved configuration exposed to the rest of the app.
 /// Precedence: CLI args > env vars > config file > defaults.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Config {
     pub alert_frequency: u64,
     pub decibel_threshold: f32,
     pub sensitivity: f32,
     pub notify: bool,
     pub verbose: i32,
+    pub device: Option<String>,
 }
 
 impl Config {
@@ -100,6 +112,7 @@ impl Config {
             sensitivity: sensitivity.clamp(0.0, 1.0),
             notify: cli.notify.or(file.notify).unwrap_or(true),
             verbose: cli.verbose.or(file.verbose).unwrap_or(0),
+            device: cli.device.or(file.device),
         };
 
         (config, cli.command)
@@ -150,6 +163,14 @@ impl FileConfig {
     /// Update a single key in the config file, preserving comments and formatting.
     /// If the file doesn't exist, creates one from the default template first.
     pub fn set_value(path: &PathBuf, key: &str, value: f32) -> io::Result<()> {
+        Self::set_raw(path, key, toml_edit::value(value as f64))
+    }
+
+    pub fn set_value_str(path: &PathBuf, key: &str, value: &str) -> io::Result<()> {
+        Self::set_raw(path, key, toml_edit::value(value))
+    }
+
+    fn set_raw(path: &PathBuf, key: &str, item: toml_edit::Item) -> io::Result<()> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -157,7 +178,7 @@ impl FileConfig {
         let mut doc = contents
             .parse::<toml_edit::DocumentMut>()
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        doc[key] = toml_edit::value(value as f64);
+        doc[key] = item;
         fs::write(path, doc.to_string())
     }
 }

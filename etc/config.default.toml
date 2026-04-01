@@ -21,3 +21,6 @@
 
 # Verbosity level (0 = quiet, 1+ = debug output).
 # verbose = 0
+
+# Input device name (substring match). Run `shhh devices` to list options.
+# device = "My Microphone"

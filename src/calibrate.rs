@@ -1,29 +1,17 @@
+use crate::audio::get_input_device;
 use crate::config::{Config, FileConfig};
-
 use crate::db::compute_loudness;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use crate::prompt;
+use crate::style::*;
+use cpal::traits::{DeviceTrait, StreamTrait};
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-// ANSI escape helpers
-const BOLD: &str = "\x1b[1m";
-const DIM: &str = "\x1b[2m";
-const RESET: &str = "\x1b[0m";
-const WHITE: &str = "\x1b[97m";
-const GREEN: &str = "\x1b[32m";
-const YELLOW: &str = "\x1b[33m";
-const CYAN: &str = "\x1b[36m";
-const RED: &str = "\x1b[31m";
-
-const DIVIDER: &str = "────────────────────────────────────────";
-
 pub fn run(config: &Config, duration: u64) {
     let host = cpal::default_host();
-    let device = host
-        .default_input_device()
-        .expect("No input device available");
+    let device = get_input_device(&host, config.device.as_deref());
     let device_config = device
         .default_input_config()
         .expect("Failed to get default input config");
@@ -39,9 +27,12 @@ pub fn run(config: &Config, duration: u64) {
     // Phase 1: ambient noise
     println!("{BOLD}{WHITE}  🤫  STAY QUIET{RESET}");
     println!();
-    wait_for_enter(&format!(
+    if !prompt::wait_for_enter(&format!(
         "  Press {BOLD}{CYAN}[ENTER]{RESET} to measure ambient noise... "
-    ));
+    )) {
+        println!();
+        return;
+    }
     println!();
     let ambient_db = measure(&device, &device_config, sensitivity, duration);
     println!();
@@ -57,9 +48,12 @@ pub fn run(config: &Config, duration: u64) {
     // Phase 2: speech
     println!("{BOLD}{WHITE}  🗨️   SPEAK NORMALLY{RESET}");
     println!();
-    wait_for_enter(&format!(
+    if !prompt::wait_for_enter(&format!(
         "  Press {BOLD}{CYAN}[ENTER]{RESET}, then talk at your normal volume... "
-    ));
+    )) {
+        println!();
+        return;
+    }
     println!();
     let speech_db = measure(&device, &device_config, sensitivity, duration);
     println!();
@@ -112,11 +106,10 @@ pub fn run(config: &Config, duration: u64) {
             "  Save to config file? {BOLD}{CYAN}(y/N){RESET} "
         );
         io::stdout().flush().unwrap();
-        let mut answer = String::new();
-        io::stdin().read_line(&mut answer).unwrap();
+        let answer = prompt::read_line().unwrap_or_default();
         println!();
 
-        if answer.trim().eq_ignore_ascii_case("y") {
+        if answer.eq_ignore_ascii_case("y") {
             match FileConfig::set_value(&path, "decibel_threshold", threshold) {
                 Ok(()) => println!("  {GREEN}✓{RESET}  Saved to {DIM}{}{RESET}", path.display()),
                 Err(e) => eprintln!("  {RED}✗{RESET}  Failed to save: {}", e),
@@ -207,9 +200,3 @@ fn level_bar(db: f32) -> String {
     )
 }
 
-fn wait_for_enter(prompt: &str) {
-    print!("{}", prompt);
-    io::stdout().flush().unwrap();
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf).unwrap();
-}

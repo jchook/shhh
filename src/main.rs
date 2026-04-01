@@ -1,17 +1,21 @@
+mod audio;
 mod calibrate;
 mod config;
 mod db;
+mod devices;
 mod notify;
+mod prompt;
+mod style;
 
+use audio::get_input_device;
 use config::{Command, Config, FileConfig};
 use db::compute_loudness;
 use notify::send_system_notification;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::traits::{DeviceTrait, StreamTrait};
 use rodio::{Decoder, OutputStream, Sink};
 use std::io::Cursor;
 use std::time::Instant;
 
-// Embedded alert sound
 const ALERT_OGG: &[u8] = include_bytes!("../assets/alert.ogg");
 
 fn play_alert() {
@@ -22,7 +26,7 @@ fn play_alert() {
     let cursor = Cursor::new(ALERT_OGG);
     if let Ok(source) = Decoder::new(cursor) {
         sink.append(source);
-        sink.sleep_until_end(); // Wait for the sound to finish
+        sink.sleep_until_end();
     } else {
         println!("Failed to decode alert sound file");
     }
@@ -50,17 +54,22 @@ fn main() {
             }
             return;
         }
+        Some(Command::Devices { verbose }) => {
+            devices::run(verbose);
+            return;
+        }
         None => {}
     }
 
-    println!(
-        "Threshold: {:.1}, Frequency: {:.1}, Sensitivity: {:.1}",
-        config.decibel_threshold, config.alert_frequency, config.sensitivity,
-    );
     let host = cpal::default_host();
-    let device = host
-        .default_input_device()
-        .expect("No input device available");
+    let device = get_input_device(&host, config.device.as_deref());
+    let device_name = device.name().unwrap_or_else(|_| "unknown".into());
+
+    println!(
+        "Device: {}, Threshold: {:.1}, Frequency: {:.1}, Sensitivity: {:.1}",
+        device_name, config.decibel_threshold, config.alert_frequency, config.sensitivity,
+    );
+
     let device_config = device
         .default_input_config()
         .expect("Failed to get default input config");
@@ -74,7 +83,6 @@ fn main() {
                 let (rms, peak, hybrid_metric, db) =
                     compute_loudness(data, config.sensitivity);
 
-                // Print debug info
                 if config.verbose > 0 {
                     println!(
                         "RMS: {:.5}, Peak: {:.5}, Hybrid: {:.5}, dB: {:.2}",
@@ -82,7 +90,6 @@ fn main() {
                     );
                 }
 
-                // Trigger alert if dB exceeds threshold
                 if db > config.decibel_threshold
                     && last_alert.elapsed().as_secs() >= config.alert_frequency
                 {
