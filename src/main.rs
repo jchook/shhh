@@ -1,7 +1,7 @@
 mod audio;
 mod calibrate;
 mod config;
-mod db;
+mod loudness;
 mod devices;
 mod notify;
 mod prompt;
@@ -9,7 +9,7 @@ mod style;
 
 use audio::get_input_device;
 use config::{Command, Config, FileConfig};
-use db::compute_loudness;
+use loudness::compute_loudness;
 use notify::send_system_notification;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use rodio::{Decoder, OutputStream, Sink};

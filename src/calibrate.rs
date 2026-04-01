@@ -1,6 +1,6 @@
 use crate::audio::get_input_device;
 use crate::config::{Config, FileConfig};
-use crate::db::compute_loudness;
+use crate::loudness::compute_loudness;
 use crate::prompt;
 use crate::style::*;
 use cpal::traits::{DeviceTrait, StreamTrait};
