@@ -24,3 +24,6 @@
 
 # Input device name (substring match). Run `shhh devices` to list options.
 # device = "My Microphone"
+
+# Path to a custom alert sound (WAV, FLAC, OGG, MP3).
+# alert = "/path/to/sound.ogg"

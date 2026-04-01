@@ -37,6 +37,10 @@ struct CliArgs {
     #[arg(short, long, env = "SHHH_DEVICE")]
     device: Option<String>,
 
+    /// Path to custom alert sound (WAV, FLAC, OGG, MP3)
+    #[arg(short, long, env = "SHHH_ALERT")]
+    alert: Option<String>,
+
     #[command(subcommand)]
     pub command: Option<Command>,
 }
@@ -69,6 +73,7 @@ pub struct FileConfig {
     pub notify: Option<bool>,
     pub verbose: Option<i32>,
     pub device: Option<String>,
+    pub alert: Option<String>,
 }
 
 /// Resolved configuration exposed to the rest of the app.
@@ -81,6 +86,7 @@ pub struct Config {
     pub notify: bool,
     pub verbose: i32,
     pub device: Option<String>,
+    pub alert: Option<String>,
 }
 
 impl Config {
@@ -113,6 +119,7 @@ impl Config {
             notify: cli.notify.or(file.notify).unwrap_or(true),
             verbose: cli.verbose.or(file.verbose).unwrap_or(0),
             device: cli.device.or(file.device),
+            alert: cli.alert.or(file.alert),
         };
 
         (config, cli.command)

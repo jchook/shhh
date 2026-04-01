@@ -18,21 +18,38 @@ use std::time::Instant;
 
 const ALERT_OGG: &[u8] = include_bytes!("../assets/alert.ogg");
 
-fn play_alert() {
+fn play_alert(path: Option<&str>) {
     let (_stream, stream_handle) =
         OutputStream::try_default().expect("Failed to get output stream");
     let sink = Sink::try_new(&stream_handle).expect("Failed to create Sink");
 
-    let cursor = Cursor::new(ALERT_OGG);
-    match Decoder::new(cursor) {
-        Ok(source) => {
-            sink.append(source);
-            sink.sleep_until_end();
+    match path {
+        Some(p) => {
+            let file = match std::fs::File::open(p) {
+                Ok(f) => f,
+                Err(e) => {
+                    eprintln!("Failed to open alert sound \"{}\": {}", p, e);
+                    return;
+                }
+            };
+            match Decoder::new(std::io::BufReader::new(file)) {
+                Ok(source) => sink.append(source),
+                Err(e) => {
+                    eprintln!("Failed to decode \"{}\": {}", p, e);
+                    return;
+                }
+            }
         }
-        Err(_) => {
-            println!("Failed to decode alert sound file");
-        }
+        None => match Decoder::new(Cursor::new(ALERT_OGG)) {
+            Ok(source) => sink.append(source),
+            Err(_) => {
+                eprintln!("Failed to decode embedded alert sound");
+                return;
+            }
+        },
     }
+
+    sink.sleep_until_end();
 }
 
 fn main() {
@@ -101,8 +118,9 @@ fn main() {
                         rms, peak, hybrid_metric, db
                     );
                     let notify = config.notify;
+                    let alert = config.alert.clone();
                     std::thread::spawn(move || {
-                        play_alert();
+                        play_alert(alert.as_deref());
                         if notify {
                             send_system_notification();
                         }
