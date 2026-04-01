@@ -17,7 +17,7 @@ Download the binary for your platform and add it to your PATH:
 
 * [Latest release](https://github.com/jchook/shhh/releases)
 
-**OR**, if you have the [Rust toolchain](https://rustup.rs/) installed:
+**OR**, if you have the Rust toolchain installed:
 
 ```sh
 cargo install shhh
