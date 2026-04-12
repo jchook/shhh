@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { BRAND_NAME, REPO_URL } from "../consts.ts";
 import { colors } from "../styles/colors.stylex.ts";
 import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
@@ -53,9 +54,9 @@ export function Footer() {
   return (
     <footer {...stylex.props(styles.footer)}>
       <div {...stylex.props(styles.left)}>
-        <span {...stylex.props(styles.wordmark)}>shh.mom</span>
+        <span {...stylex.props(styles.wordmark)}>{BRAND_NAME}</span>
         <a
-          href="https://github.com/jchook/shhh"
+          href={REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
           {...stylex.props(styles.link)}

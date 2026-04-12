@@ -6,8 +6,17 @@ import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 import { button } from "../styles/common.ts";
 import { TabGroup } from "./TabGroup.tsx";
+import { REPO_URL } from "../consts.ts";
 
 type Platform = "macos" | "linux" | "windows";
+
+function detectPlatform(): Platform {
+  if (typeof navigator === "undefined") return "macos";
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes("win")) return "windows";
+  if (ua.includes("linux")) return "linux";
+  return "macos";
+}
 
 const platformTabs: { value: Platform; label: string }[] = [
   { value: "macos", label: "macOS" },
@@ -15,7 +24,7 @@ const platformTabs: { value: Platform; label: string }[] = [
   { value: "windows", label: "Windows" },
 ];
 
-const REPO = "https://github.com/jchook/shhh";
+const REPO = REPO_URL;
 const LATEST = `${REPO}/releases/latest/download`;
 
 const platforms: Record<
@@ -28,6 +37,7 @@ const platforms: Record<
     cargo: (
       <>
         <CodeBlock>cargo install shhh</CodeBlock>
+        <RustupLink />
       </>
     ),
   },
@@ -40,6 +50,7 @@ const platforms: Record<
         <CodeBlock>sudo apt install libasound2-dev pkg-config</CodeBlock>
         <Step>Then install via Cargo:</Step>
         <CodeBlock>cargo install shhh</CodeBlock>
+        <RustupLink />
       </>
     ),
   },
@@ -49,6 +60,7 @@ const platforms: Record<
     cargo: (
       <>
         <CodeBlock>cargo install shhh</CodeBlock>
+        <RustupLink />
       </>
     ),
   },
@@ -79,7 +91,7 @@ const styles = stylex.create({
     marginBottom: spacing.xl,
   },
   tabWrap: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   buttons: {
     display: "flex",
@@ -149,6 +161,13 @@ const styles = stylex.create({
     whiteSpace: "pre",
     marginBottom: spacing.md,
   },
+  rustup: {
+    fontSize: typography.textXs,
+    color: colors.textSecondary,
+    textDecoration: "none",
+    borderBottom: `1px solid ${colors.borderDefault}`,
+    transition: "color 0.15s ease",
+  },
 });
 
 function Step({ children }: { children: ComponentChildren }) {
@@ -159,8 +178,21 @@ function CodeBlock({ children }: { children: ComponentChildren }) {
   return <div {...stylex.props(styles.codeBlock)}>{children}</div>;
 }
 
+function RustupLink() {
+  return (
+    <a
+      href="https://rustup.rs/"
+      target="_blank"
+      rel="noopener noreferrer"
+      {...stylex.props(styles.rustup)}
+    >
+      Install <code>cargo</code> via rustup
+    </a>
+  );
+}
+
 export function InstallSection() {
-  const [active, setActive] = useState<Platform>("macos");
+  const [active, setActive] = useState<Platform>(detectPlatform);
   const info = platforms[active];
 
   return (

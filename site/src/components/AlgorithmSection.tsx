@@ -3,6 +3,7 @@ import { colors } from "../styles/colors.stylex.ts";
 import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 import { LoudnessDiagram } from "./LoudnessDiagram.tsx";
+import { BRAND_NAME } from "../consts.ts";
 
 const styles = stylex.create({
   section: {
@@ -57,7 +58,7 @@ export function AlgorithmSection() {
             Smarter than a raw volume cutoff
           </h2>
           <p {...stylex.props(styles.body)}>
-            shh.mom doesn't rely on a naive volume spike. It measures sustained
+            {BRAND_NAME} doesn't rely on a naive volume spike. It measures sustained
             energy (RMS), tracks peaks, blends them with a configurable
             sensitivity control, and converts the result into dB — so alerting
             feels natural and adapts to your environment.

@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { BRAND_NAME, REPO_URL } from "../consts.ts";
 import { colors } from "../styles/colors.stylex.ts";
 import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
@@ -86,7 +87,7 @@ export function Nav() {
     <div {...stylex.props(styles.backdrop)}>
       <nav {...stylex.props(styles.nav)}>
         <a href="#" {...stylex.props(styles.wordmark)}>
-          shh.mom
+          {BRAND_NAME}
         </a>
         <div {...stylex.props(styles.links)}>
           <div {...stylex.props(styles.mobileHide)}>
@@ -100,7 +101,7 @@ export function Nav() {
             </a>
           </div>
           <a
-            href="https://github.com/jchook/shhh"
+            href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
             {...stylex.props(styles.link)}

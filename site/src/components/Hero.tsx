@@ -3,6 +3,7 @@ import { colors } from "../styles/colors.stylex.ts";
 import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 import { button } from "../styles/common.ts";
+import { BRAND_NAME, REPO_URL } from "../consts.ts";
 import { InstrumentDisplay } from "./InstrumentDisplay.tsx";
 import { Shhh } from "./Shhh.tsx";
 
@@ -94,7 +95,7 @@ export function Hero() {
             A quiet little program that tells you when you're being too loud.
           </h1>
           <p {...stylex.props(styles.body)}>
-            shh.mom listens to your microphone, measures loudness in real time,
+            {BRAND_NAME} listens to your microphone, measures loudness in real time,
             and says <Shhh /> when you cross a threshold you control.
           </p>
           <div {...stylex.props(styles.cta)}>
@@ -102,7 +103,7 @@ export function Hero() {
               Install
             </a>
             <a
-              href="https://github.com/jchook/shhh"
+              href={REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
               {...stylex.props(button.base, button.secondary)}

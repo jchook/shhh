@@ -17,9 +17,9 @@ const features: { label: string; title: ComponentChildren; body: ComponentChildr
     body: "Can send system notifications too, in case your headphones are off or you miss the audio cue.",
   },
   {
-    label: "PLATFORM",
-    title: "Cross-platform",
-    body: "Runs on macOS, Linux, and Windows.",
+    label: "CALIBRATE",
+    title: "Real-world calibration",
+    body: "Measures your ambient noise and speaking voice, then sets the threshold automatically. No guesswork.",
   },
   {
     label: "CONFIG",
