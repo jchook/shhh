@@ -172,15 +172,18 @@ export function InstrumentDisplay() {
         strokeDasharray="6 4"
       />
 
-      {/* Threshold label */}
+      {/* Threshold label — below line, right-aligned, with up caret */}
       <text
-        x={W - PAD + 4}
-        y={THRESHOLD_Y + 3}
+        x={W - PAD - 4}
+        y={THRESHOLD_Y + 16}
         fill="#c44040"
-        fontSize="8"
-        fontFamily="'JetBrains Mono', monospace"
+        fontSize="9"
+        fontFamily="'Inter', sans-serif"
+        fontWeight="500"
+        textAnchor="end"
+        letterSpacing="0.15em"
       >
-        THR
+        THRESHOLD &#x25B4;
       </text>
 
       {/* Waveform */}
@@ -194,62 +197,83 @@ export function InstrumentDisplay() {
         strokeLinejoin="round"
       />
 
-      {/* Recording indicator */}
-      <circle ref={recRef} cx={W - PAD - 8} cy={PAD + 8} r={4} fill="#c44040" />
+      {/* Recording indicator — circle left of label */}
+      <circle ref={recRef} cx={W - PAD - 34} cy={PAD + 10} r={4} fill="#c44040" />
       <text
-        x={W - PAD - 20}
-        y={PAD + 11}
+        x={W - PAD - 4}
+        y={PAD + 13}
         fill="#c44040"
-        fontSize="7"
-        fontFamily="'JetBrains Mono', monospace"
+        fontSize="9"
+        fontFamily="'Inter', sans-serif"
+        fontWeight="500"
         textAnchor="end"
+        letterSpacing="0.15em"
       >
         REC
       </text>
+
+      {/* SHH glow filter */}
+      <defs>
+        <filter id="shhGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
 
       {/* SHH flash */}
       <text
         ref={shhRef}
         x={W / 2}
-        y={PAD + 24}
+        y={PAD + 28}
         fill="#e05050"
-        fontSize="16"
-        fontWeight="bold"
-        fontFamily="'JetBrains Mono', monospace"
+        fontSize="20"
+        fontWeight="600"
+        fontFamily="'Inter', sans-serif"
         textAnchor="middle"
+        letterSpacing="0.2em"
+        filter="url(#shhGlow)"
         opacity="0"
       >
-        SHH
+        SHH!
       </text>
 
       {/* Corner labels */}
       <text
-        x={PAD + 4}
-        y={PAD + 10}
-        fill="#3a3a42"
-        fontSize="7"
-        fontFamily="'JetBrains Mono', monospace"
+        x={PAD + 6}
+        y={PAD + 14}
+        fill="#4a4a52"
+        fontSize="8"
+        fontFamily="'Inter', sans-serif"
+        fontWeight="500"
+        letterSpacing="0.1em"
       >
         dB
       </text>
       <text
-        x={PAD + 4}
-        y={H - PAD - 4}
-        fill="#3a3a42"
-        fontSize="7"
-        fontFamily="'JetBrains Mono', monospace"
+        x={PAD + 6}
+        y={H - PAD - 6}
+        fill="#4a4a52"
+        fontSize="8"
+        fontFamily="'Inter', sans-serif"
+        fontWeight="500"
+        letterSpacing="0.1em"
       >
         RMS
       </text>
       <text
-        x={W - PAD - 4}
-        y={H - PAD - 4}
-        fill="#3a3a42"
-        fontSize="7"
-        fontFamily="'JetBrains Mono', monospace"
+        x={W - PAD - 6}
+        y={H - PAD - 6}
+        fill="#4a4a52"
+        fontSize="8"
+        fontFamily="'Inter', sans-serif"
+        fontWeight="500"
+        letterSpacing="0.1em"
         textAnchor="end"
       >
-        t
+        TIME
       </text>
     </svg>
   );

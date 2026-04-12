@@ -4,8 +4,15 @@ import { colors } from "../styles/colors.stylex.ts";
 import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 import { button } from "../styles/common.ts";
+import { TabGroup } from "./TabGroup.tsx";
 
 type Platform = "macos" | "linux" | "windows";
+
+const platformTabs: { value: Platform; label: string }[] = [
+  { value: "macos", label: "macOS" },
+  { value: "linux", label: "Linux" },
+  { value: "windows", label: "Windows" },
+];
 
 const instructions: Record<
   Platform,
@@ -41,6 +48,9 @@ const instructions: Record<
 
 const styles = stylex.create({
   section: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
     paddingBlock: spacing.section,
     paddingInline: spacing.containerPad,
     maxWidth: spacing.containerMax,
@@ -51,36 +61,16 @@ const styles = stylex.create({
     fontSize: typography.text3xl,
     fontWeight: "700",
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
     letterSpacing: "-0.02em",
   },
   subhead: {
     fontSize: typography.textBase,
     color: colors.textSecondary,
+    marginTop: spacing.sm,
     marginBottom: spacing.xxl,
   },
-  tabs: {
-    display: "inline-flex",
-    backgroundColor: colors.bgPanel,
-    border: `1px solid ${colors.borderDefault}`,
-    borderRadius: "8px",
-    overflow: "hidden",
-    marginBottom: spacing.xl,
-  },
-  tab: {
-    fontFamily: typography.fontMono,
-    fontSize: typography.textSm,
-    paddingBlock: spacing.sm,
-    paddingInline: spacing.md,
-    backgroundColor: "transparent",
-    color: colors.textSecondary,
-    border: "none",
-    cursor: "pointer",
-    transition: "color 0.15s ease, background-color 0.15s ease",
-  },
-  tabActive: {
-    backgroundColor: colors.bgPanelHover,
-    color: colors.textPrimary,
+  tabWrap: {
+    marginBottom: spacing.lg,
   },
   content: {
     textAlign: "left",
@@ -137,16 +127,8 @@ export function InstallSection() {
         Pick your platform and get running.
       </p>
 
-      <div {...stylex.props(styles.tabs)}>
-        {platforms.map((p) => (
-          <button
-            key={p}
-            onClick={() => setActive(p)}
-            {...stylex.props(styles.tab, p === active && styles.tabActive)}
-          >
-            {instructions[p].label}
-          </button>
-        ))}
+      <div {...stylex.props(styles.tabWrap)}>
+        <TabGroup tabs={platformTabs} active={active} onSelect={setActive} />
       </div>
 
       <div {...stylex.props(styles.content)}>
