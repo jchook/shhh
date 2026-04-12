@@ -1,0 +1,114 @@
+import * as stylex from "@stylexjs/stylex";
+import { colors } from "../styles/colors.stylex.ts";
+import { typography } from "../styles/typography.stylex.ts";
+
+const features = [
+  {
+    label: "AUDIO",
+    title: 'Actually says "SHH"',
+    body: "Not just a meter. When you cross the line, it tells you.",
+  },
+  {
+    label: "ALERTS",
+    title: "Optional OS alerts",
+    body: "Can send system notifications too, in case your headphones are off or you miss the audio cue.",
+  },
+  {
+    label: "PLATFORM",
+    title: "Cross-platform",
+    body: "Runs on macOS, Linux, and Windows.",
+  },
+  {
+    label: "CONFIG",
+    title: "Configurable threshold",
+    body: "Tune it to your voice, your room, your microphone, and the time of day.",
+  },
+  {
+    label: "ENGINE",
+    title: "Advanced loudness detection",
+    body: "Uses a hybrid metric based on RMS and peak amplitude instead of a simplistic raw volume cutoff.",
+  },
+  {
+    label: "CORE",
+    title: "Built in Rust",
+    body: "Fast, dependable, and small. Built like a real utility.",
+  },
+];
+
+const styles = stylex.create({
+  section: {
+    paddingBlock: 100,
+    paddingInline: 32,
+    maxWidth: 1120,
+    marginInline: "auto",
+  },
+  heading: {
+    fontSize: 32,
+    fontWeight: 700,
+    color: colors.textPrimary,
+    marginBottom: 48,
+    textAlign: "center",
+    letterSpacing: "-0.02em",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: {
+      default: "repeat(3, 1fr)",
+      "@media (max-width: 900px)": "repeat(2, 1fr)",
+      "@media (max-width: 600px)": "1fr",
+    },
+    gap: 20,
+  },
+  card: {
+    backgroundColor: colors.bgPanel,
+    border: `1px solid ${colors.borderDefault}`,
+    borderRadius: 8,
+    padding: 28,
+    transition: "border-color 0.2s ease, transform 0.2s ease",
+    borderColor: {
+      default: colors.borderDefault,
+      ":hover": colors.borderBright,
+    },
+    transform: {
+      default: "translateY(0)",
+      ":hover": "translateY(-2px)",
+    },
+  },
+  label: {
+    fontFamily: typography.fontMono,
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: "0.18em",
+    color: colors.textMono,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: colors.textPrimary,
+    marginBottom: 10,
+    lineHeight: 1.3,
+  },
+  body: {
+    fontSize: 14,
+    lineHeight: 1.6,
+    color: colors.textSecondary,
+  },
+});
+
+export function Features() {
+  return (
+    <section id="features" {...stylex.props(styles.section)}>
+      <h2 {...stylex.props(styles.heading)}>Features</h2>
+      <div {...stylex.props(styles.grid)}>
+        {features.map((f) => (
+          <div key={f.label} {...stylex.props(styles.card)}>
+            <div {...stylex.props(styles.label)}>{f.label}</div>
+            <h3 {...stylex.props(styles.title)}>{f.title}</h3>
+            <p {...stylex.props(styles.body)}>{f.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
