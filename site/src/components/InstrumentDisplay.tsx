@@ -1,65 +1,185 @@
 import { useRef, useEffect } from "preact/hooks";
 
+const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 const W = 480;
 const H = 320;
-const PAD = 30;
-const THRESHOLD_Y = 120;
-const POINTS = 60;
+const PAD_T = 40;
+const PAD_B = 32;
+const PAD_L = 40;
+const PAD_R = 20;
+const THRESH_FRAC = 0.32; // threshold at 32% from top of plot area
 
-function generateWaveform(time: number): number[] {
-  const pts: number[] = [];
-  const baseAmp = 30;
-
-  // Create periodic spikes every ~5 seconds
-  const cycle = time % 5;
-  const spiking = cycle > 3.8 && cycle < 4.6;
-  const spikePhase = spiking ? Math.sin(((cycle - 3.8) / 0.8) * Math.PI) : 0;
-  const amp = baseAmp + spikePhase * 120;
-
-  for (let i = 0; i < POINTS; i++) {
-    const x = i / (POINTS - 1);
-    const wave =
-      Math.sin(x * 6 + time * 2) * 0.4 +
-      Math.sin(x * 14 + time * 3.5) * 0.25 +
-      Math.sin(x * 22 + time * 1.2) * 0.15 +
-      (Math.random() - 0.5) * 0.2;
-    pts.push(wave * amp);
-  }
-  return pts;
+// Smooth noise using layered sine waves with slowly drifting phases
+function sampleWaveform(x: number, time: number, amp: number): number {
+  return (
+    Math.sin(x * 5.0 + time * 1.8) * 0.35 +
+    Math.sin(x * 11.0 + time * 2.7 + 1.0) * 0.25 +
+    Math.sin(x * 23.0 + time * 0.9 + 2.5) * 0.15 +
+    Math.sin(x * 7.3 - time * 1.3 + 0.7) * 0.15 +
+    Math.sin(x * 37.0 + time * 4.1) * 0.10
+  ) * amp;
 }
 
-function pointsToPath(points: number[]): string {
-  const centerY = H / 2 + 20;
-  const startX = PAD + 10;
-  const endX = W - PAD - 10;
-  const step = (endX - startX) / (points.length - 1);
-
-  let d = `M ${startX} ${centerY + points[0]}`;
-  for (let i = 1; i < points.length; i++) {
-    const x = startX + i * step;
-    const y = centerY + points[i];
-    d += ` L ${x} ${y.toFixed(1)}`;
+function getAmplitude(time: number): number {
+  const base = 0.18;
+  // Spike pattern: ramp up, hold briefly, decay — every ~6 seconds
+  const cycle = time % 6;
+  if (cycle < 3.5) return base;
+  if (cycle < 4.2) {
+    // ramp up
+    const t = (cycle - 3.5) / 0.7;
+    return base + t * t * 0.72;
   }
-  return d;
+  if (cycle < 4.6) {
+    // hold near peak
+    return base + 0.72 - (cycle - 4.2) * 0.1;
+  }
+  // decay
+  const t = (cycle - 4.6) / 1.4;
+  return base + (0.68 - t * 0.68) * Math.max(0, 1 - t);
 }
 
 export function InstrumentDisplay() {
-  const pathRef = useRef<SVGPathElement>(null);
-  const shhRef = useRef<SVGTextElement>(null);
-  const recRef = useRef<SVGCircleElement>(null);
-  const threshRef = useRef<SVGLineElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<number>(0);
   const startRef = useRef<number>(0);
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.scale(DPR, DPR);
+
     const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
+      "(prefers-reduced-motion: reduce)",
     ).matches;
 
+    const plotL = PAD_L;
+    const plotR = W - PAD_R;
+    const plotT = PAD_T;
+    const plotB = H - PAD_B;
+    const plotW = plotR - plotL;
+    const plotH = plotB - plotT;
+    const threshY = plotT + plotH * THRESH_FRAC;
+    const centerY = plotT + plotH * 0.55;
+
+    const LABEL_FONT = "500 9px 'Inter', sans-serif";
+    const LABEL_SMALL_FONT = "500 8px 'Inter', sans-serif";
+    const SHH_FONT = "600 22px 'Inter', sans-serif";
+
+    function draw(time: number) {
+      ctx!.clearRect(0, 0, W, H);
+
+      // Outer bezel
+      roundRect(ctx!, 0, 0, W, H, 12, "#1e1e22", "#3a3a42", 1.5);
+
+      // Inner display
+      roundRect(ctx!, 10, 10, W - 20, H - 20, 6, "#111114", "#2a2a30", 1);
+
+      // Grid lines
+      ctx!.strokeStyle = "#2a2a30";
+      ctx!.lineWidth = 0.5;
+      for (let i = 1; i < 4; i++) {
+        const y = plotT + (plotH * i) / 4;
+        line(ctx!, plotL, y, plotR, y);
+      }
+      for (let i = 1; i < 5; i++) {
+        const x = plotL + (plotW * i) / 5;
+        line(ctx!, x, plotT, x, plotB);
+      }
+
+      // Threshold line
+      const amp = getAmplitude(time);
+      const crossed = amp > 0.55;
+
+      ctx!.strokeStyle = crossed ? "#e05050" : "#c44040";
+      ctx!.lineWidth = crossed ? 1.5 : 1;
+      ctx!.setLineDash([6, 4]);
+      line(ctx!, plotL, threshY, plotR, threshY);
+      ctx!.setLineDash([]);
+
+      // Threshold label — below line, right-aligned
+      ctx!.font = LABEL_SMALL_FONT;
+      ctx!.fillStyle = crossed ? "#e05050" : "#c44040";
+      ctx!.textAlign = "right";
+      ctx!.textBaseline = "top";
+      ctx!.letterSpacing = "0.15em";
+      ctx!.fillText("THRESHOLD \u25B4", plotR - 2, threshY + 5);
+
+      // Waveform
+      ctx!.beginPath();
+      ctx!.strokeStyle = crossed ? "#5cb86c" : "#4a9a5a";
+      ctx!.lineWidth = 1.5;
+      ctx!.lineJoin = "round";
+      ctx!.lineCap = "round";
+      const points = 80;
+      for (let i = 0; i <= points; i++) {
+        const frac = i / points;
+        const x = plotL + frac * plotW;
+        const val = sampleWaveform(frac * 10, time, amp);
+        const y = centerY - val * plotH * 0.45;
+        if (i === 0) ctx!.moveTo(x, y);
+        else ctx!.lineTo(x, y);
+      }
+      ctx!.stroke();
+
+      // REC indicator — circle then text, top-right
+      const recX = plotR - 4;
+      const recY = plotT + 10;
+      ctx!.fillStyle = crossed ? "#e05050" : "#c44040";
+      ctx!.beginPath();
+      ctx!.arc(recX - 30, recY, crossed ? 5 : 3.5, 0, Math.PI * 2);
+      ctx!.fill();
+      ctx!.font = LABEL_FONT;
+      ctx!.textAlign = "right";
+      ctx!.textBaseline = "middle";
+      ctx!.letterSpacing = "0.15em";
+      ctx!.fillText("REC", recX, recY);
+
+      // SHH flash
+      if (crossed) {
+        ctx!.save();
+        ctx!.font = SHH_FONT;
+        ctx!.textAlign = "center";
+        ctx!.textBaseline = "middle";
+        ctx!.letterSpacing = "0.25em";
+
+        // Glow layers
+        ctx!.shadowColor = "#e05050";
+        ctx!.shadowBlur = 20;
+        ctx!.fillStyle = "#e05050";
+        ctx!.fillText("SHH!", plotL + plotW / 2, plotT + 22);
+        ctx!.shadowBlur = 10;
+        ctx!.fillText("SHH!", plotL + plotW / 2, plotT + 22);
+        ctx!.shadowBlur = 0;
+        ctx!.fillStyle = "#ff7070";
+        ctx!.fillText("SHH!", plotL + plotW / 2, plotT + 22);
+        ctx!.restore();
+      }
+
+      // Corner axis labels
+      ctx!.font = LABEL_SMALL_FONT;
+      ctx!.fillStyle = "#4a4a52";
+      ctx!.letterSpacing = "0.12em";
+
+      ctx!.textAlign = "left";
+      ctx!.textBaseline = "top";
+      ctx!.fillText("dB", plotL + 4, plotT + 4);
+
+      ctx!.textBaseline = "bottom";
+      ctx!.fillText("RMS", plotL + 4, plotB - 4);
+
+      ctx!.textAlign = "right";
+      ctx!.fillText("TIME", plotR - 4, plotB - 4);
+    }
+
     if (prefersReduced) {
-      // Static snapshot
-      const pts = generateWaveform(0);
-      if (pathRef.current) pathRef.current.setAttribute("d", pointsToPath(pts));
+      draw(4.0); // static snapshot at a calm moment
       return;
     }
 
@@ -67,37 +187,7 @@ export function InstrumentDisplay() {
 
     function tick() {
       const elapsed = (performance.now() - startRef.current) / 1000;
-      const pts = generateWaveform(elapsed);
-      const path = pointsToPath(pts);
-
-      if (pathRef.current) pathRef.current.setAttribute("d", path);
-
-      // Check if waveform crosses threshold
-      const centerY = H / 2 + 20;
-      const threshAbs = THRESHOLD_Y;
-      const crossed = pts.some((p) => centerY + p < threshAbs);
-
-      if (shhRef.current) {
-        shhRef.current.setAttribute("opacity", crossed ? "1" : "0");
-      }
-      if (recRef.current) {
-        recRef.current.setAttribute("r", crossed ? "6" : "4");
-        recRef.current.setAttribute(
-          "fill",
-          crossed ? "#e05050" : "#c44040"
-        );
-      }
-      if (threshRef.current) {
-        threshRef.current.setAttribute(
-          "stroke",
-          crossed ? "#e05050" : "#c44040"
-        );
-        threshRef.current.setAttribute(
-          "stroke-width",
-          crossed ? "1.5" : "1"
-        );
-      }
-
+      draw(elapsed);
       frameRef.current = requestAnimationFrame(tick);
     }
 
@@ -106,175 +196,46 @@ export function InstrumentDisplay() {
   }, []);
 
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      width="100%"
-      style={{ maxWidth: "480px" }}
+    <canvas
+      ref={canvasRef}
+      width={W}
+      height={H}
+      style={{ width: "100%", maxWidth: `${W}px` }}
       role="img"
       aria-label="Animated loudness meter display showing a waveform crossing a threshold"
-    >
-      {/* Outer bezel */}
-      <rect
-        x="0"
-        y="0"
-        width={W}
-        height={H}
-        rx="12"
-        fill="#1e1e22"
-        stroke="#3a3a42"
-        strokeWidth="1.5"
-      />
-      {/* Inner display */}
-      <rect
-        x={PAD / 2}
-        y={PAD / 2}
-        width={W - PAD}
-        height={H - PAD}
-        rx="6"
-        fill="#111114"
-        stroke="#2a2a30"
-        strokeWidth="1"
-      />
-
-      {/* Grid lines */}
-      {[0.25, 0.5, 0.75].map((f) => (
-        <line
-          key={`h${f}`}
-          x1={PAD}
-          y1={PAD + (H - 2 * PAD) * f}
-          x2={W - PAD}
-          y2={PAD + (H - 2 * PAD) * f}
-          stroke="#2a2a30"
-          strokeWidth="0.5"
-        />
-      ))}
-      {[0.2, 0.4, 0.6, 0.8].map((f) => (
-        <line
-          key={`v${f}`}
-          x1={PAD + (W - 2 * PAD) * f}
-          y1={PAD}
-          x2={PAD + (W - 2 * PAD) * f}
-          y2={H - PAD}
-          stroke="#2a2a30"
-          strokeWidth="0.5"
-        />
-      ))}
-
-      {/* Threshold line */}
-      <line
-        ref={threshRef}
-        x1={PAD}
-        y1={THRESHOLD_Y}
-        x2={W - PAD}
-        y2={THRESHOLD_Y}
-        stroke="#c44040"
-        strokeWidth="1"
-        strokeDasharray="6 4"
-      />
-
-      {/* Threshold label — below line, right-aligned, with up caret */}
-      <text
-        x={W - PAD - 4}
-        y={THRESHOLD_Y + 16}
-        fill="#c44040"
-        fontSize="9"
-        fontFamily="'Inter', sans-serif"
-        fontWeight="500"
-        textAnchor="end"
-        letterSpacing="0.15em"
-      >
-        THRESHOLD &#x25B4;
-      </text>
-
-      {/* Waveform */}
-      <path
-        ref={pathRef}
-        d={`M ${PAD + 10} ${H / 2 + 20} L ${W - PAD - 10} ${H / 2 + 20}`}
-        fill="none"
-        stroke="#4a9a5a"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Recording indicator — circle left of label */}
-      <circle ref={recRef} cx={W - PAD - 34} cy={PAD + 10} r={4} fill="#c44040" />
-      <text
-        x={W - PAD - 4}
-        y={PAD + 13}
-        fill="#c44040"
-        fontSize="9"
-        fontFamily="'Inter', sans-serif"
-        fontWeight="500"
-        textAnchor="end"
-        letterSpacing="0.15em"
-      >
-        REC
-      </text>
-
-      {/* SHH glow filter */}
-      <defs>
-        <filter id="shhGlow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-
-      {/* SHH flash */}
-      <text
-        ref={shhRef}
-        x={W / 2}
-        y={PAD + 28}
-        fill="#e05050"
-        fontSize="20"
-        fontWeight="600"
-        fontFamily="'Inter', sans-serif"
-        textAnchor="middle"
-        letterSpacing="0.2em"
-        filter="url(#shhGlow)"
-        opacity="0"
-      >
-        SHH!
-      </text>
-
-      {/* Corner labels */}
-      <text
-        x={PAD + 6}
-        y={PAD + 14}
-        fill="#4a4a52"
-        fontSize="8"
-        fontFamily="'Inter', sans-serif"
-        fontWeight="500"
-        letterSpacing="0.1em"
-      >
-        dB
-      </text>
-      <text
-        x={PAD + 6}
-        y={H - PAD - 6}
-        fill="#4a4a52"
-        fontSize="8"
-        fontFamily="'Inter', sans-serif"
-        fontWeight="500"
-        letterSpacing="0.1em"
-      >
-        RMS
-      </text>
-      <text
-        x={W - PAD - 6}
-        y={H - PAD - 6}
-        fill="#4a4a52"
-        fontSize="8"
-        fontFamily="'Inter', sans-serif"
-        fontWeight="500"
-        letterSpacing="0.1em"
-        textAnchor="end"
-      >
-        TIME
-      </text>
-    </svg>
+    />
   );
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill: string,
+  stroke: string,
+  lineWidth: number,
+) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+}
+
+function line(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
 }
