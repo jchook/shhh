@@ -55,7 +55,7 @@ export function AlgorithmSection() {
         <div>
           <div {...stylex.props(styles.eyebrow)}>Engine</div>
           <h2 {...stylex.props(styles.heading)}>
-            Smarter than a raw volume cutoff
+            Loudness, measured properly
           </h2>
           <p {...stylex.props(styles.body)}>
             {BRAND_NAME} doesn't rely on a naive volume spike. It measures sustained

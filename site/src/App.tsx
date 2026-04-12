@@ -4,7 +4,6 @@ import { typography } from "./styles/typography.stylex.ts";
 import { useScrollReveal } from "./hooks/useScrollReveal.ts";
 import { Nav } from "./components/Nav.tsx";
 import { Hero } from "./components/Hero.tsx";
-import { HowItWorks } from "./components/HowItWorks.tsx";
 import { Features } from "./components/Features.tsx";
 import { AlgorithmSection } from "./components/AlgorithmSection.tsx";
 import { InstallSection } from "./components/InstallSection.tsx";
@@ -30,9 +29,6 @@ export function App() {
       <Nav />
       <main>
         <Hero />
-        <RevealSection>
-          <HowItWorks />
-        </RevealSection>
         <RevealSection>
           <Features />
         </RevealSection>

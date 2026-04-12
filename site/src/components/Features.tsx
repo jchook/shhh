@@ -4,6 +4,7 @@ import { colors } from "../styles/colors.stylex.ts";
 import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 import { Shhh } from "./Shhh.tsx";
+import { REPO_URL } from "../consts.ts";
 
 const features: { label: string; title: ComponentChildren; body: ComponentChildren }[] = [
   {
@@ -17,14 +18,14 @@ const features: { label: string; title: ComponentChildren; body: ComponentChildr
     body: "Can send system notifications too, in case your headphones are off or you miss the audio cue.",
   },
   {
-    label: "CALIBRATE",
-    title: "Real-world calibration",
-    body: "Measures your ambient noise and speaking voice, then sets the threshold automatically. No guesswork.",
-  },
-  {
     label: "CONFIG",
     title: "Configurable threshold",
     body: "Tune it to your voice, your room, your microphone, and the time of day.",
+  },
+  {
+    label: "CALIBRATE",
+    title: "Real-world calibration",
+    body: "Measures your ambient noise and speaking voice, then sets the threshold automatically. No guesswork.",
   },
   {
     label: "ENGINE",
@@ -98,6 +99,19 @@ const styles = stylex.create({
     lineHeight: "1.6",
     color: colors.textSecondary,
   },
+  note: {
+    textAlign: "center",
+    marginTop: spacing.xl,
+    fontSize: typography.textSm,
+    color: colors.textSecondary,
+    lineHeight: "1.5",
+  },
+  noteLink: {
+    color: colors.accentGreen,
+    textDecoration: "none",
+    borderBottom: `1px solid ${colors.borderDefault}`,
+    transition: "border-color 0.15s ease",
+  },
 });
 
 export function Features() {
@@ -113,6 +127,17 @@ export function Features() {
           </div>
         ))}
       </div>
+      <p {...stylex.props(styles.note)}>
+        100% open source and community-driven.{" "}
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          {...stylex.props(styles.noteLink)}
+        >
+          View on GitHub
+        </a>
+      </p>
     </section>
   );
 }
