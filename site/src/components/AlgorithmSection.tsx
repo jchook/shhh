@@ -1,12 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/colors.stylex.ts";
+import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 
 const styles = stylex.create({
   section: {
-    paddingBlock: 100,
-    paddingInline: 32,
-    maxWidth: 1120,
+    paddingBlock: spacing.section,
+    paddingInline: spacing.containerPad,
+    maxWidth: spacing.containerMax,
     marginInline: "auto",
   },
   grid: {
@@ -15,49 +16,49 @@ const styles = stylex.create({
       default: "1fr 1fr",
       "@media (max-width: 768px)": "1fr",
     },
-    gap: 56,
+    gap: spacing.gapLg,
     alignItems: "start",
   },
   eyebrow: {
     fontFamily: typography.fontMono,
-    fontSize: 10,
+    fontSize: typography.labelSize,
     textTransform: "uppercase",
-    letterSpacing: "0.18em",
+    letterSpacing: typography.labelSpacing,
     color: colors.textMono,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   heading: {
-    fontSize: 28,
-    fontWeight: 700,
+    fontSize: typography.text2xl,
+    fontWeight: "700",
     color: colors.textPrimary,
-    marginBottom: 20,
-    lineHeight: 1.2,
+    marginBottom: spacing.lg,
+    lineHeight: "1.2",
     letterSpacing: "-0.02em",
   },
   body: {
-    fontSize: 15,
-    lineHeight: 1.7,
+    fontSize: "15px",
+    lineHeight: "1.7",
     color: colors.textSecondary,
   },
   codeWrap: {
     backgroundColor: colors.bgPanel,
     border: `1px solid ${colors.borderDefault}`,
-    borderRadius: 8,
-    padding: 24,
+    borderRadius: "8px",
+    padding: spacing.lg,
     overflow: "auto",
   },
   codeLabel: {
     fontFamily: typography.fontMono,
-    fontSize: 10,
+    fontSize: typography.labelSize,
     textTransform: "uppercase",
-    letterSpacing: "0.18em",
+    letterSpacing: typography.labelSpacing,
     color: colors.textMono,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   code: {
     fontFamily: typography.fontMono,
-    fontSize: 12,
-    lineHeight: 1.75,
+    fontSize: typography.textXs,
+    lineHeight: "1.75",
     color: colors.textPrimary,
     whiteSpace: "pre",
     display: "block",

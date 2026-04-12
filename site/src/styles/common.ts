@@ -1,13 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "./colors.stylex.ts";
+import { spacing } from "./spacing.stylex.ts";
 import { typography } from "./typography.stylex.ts";
 
 export const panel = stylex.create({
   base: {
     backgroundColor: colors.bgPanel,
     border: `1px solid ${colors.borderDefault}`,
-    borderRadius: 8,
-    padding: 24,
+    borderRadius: "8px",
+    padding: spacing.lg,
   },
   hover: {
     borderColor: {
@@ -25,18 +26,18 @@ export const panel = stylex.create({
 export const label = stylex.create({
   mono: {
     fontFamily: typography.fontMono,
-    fontSize: 11,
+    fontSize: typography.monoLabel,
     textTransform: "uppercase",
-    letterSpacing: "0.12em",
+    letterSpacing: typography.labelSpacing,
     color: colors.textMono,
   },
 });
 
 export const container = stylex.create({
   base: {
-    maxWidth: 1120,
+    maxWidth: spacing.containerMax,
     marginInline: "auto",
-    paddingInline: 24,
+    paddingInline: spacing.containerPad,
   },
 });
 
@@ -46,16 +47,16 @@ export const button = stylex.create({
     alignItems: "center",
     justifyContent: "center",
     fontFamily: typography.fontSans,
-    fontSize: 14,
+    fontSize: typography.textSm,
     fontWeight: "500",
-    borderRadius: 6,
-    paddingBlock: 12,
-    paddingInline: 24,
+    borderRadius: "6px",
+    paddingBlock: spacing.md,
+    paddingInline: spacing.lg,
     cursor: "pointer",
     transition: "background-color 0.15s ease, border-color 0.15s ease",
     textDecoration: "none",
     border: "1px solid transparent",
-    lineHeight: 1,
+    lineHeight: "1",
   },
   primary: {
     backgroundColor: colors.accentRed,

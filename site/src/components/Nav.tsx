@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/colors.stylex.ts";
+import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 
 const pulse = stylex.keyframes({
@@ -20,16 +21,16 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingBlock: 16,
-    paddingInline: 32,
-    maxWidth: 1120,
+    paddingBlock: spacing.md,
+    paddingInline: spacing.containerPad,
+    maxWidth: spacing.containerMax,
     marginInline: "auto",
     width: "100%",
   },
   wordmark: {
     fontFamily: typography.fontMono,
-    fontSize: 16,
-    fontWeight: 600,
+    fontSize: typography.textBase,
+    fontWeight: "600",
     color: colors.textPrimary,
     textDecoration: "none",
     letterSpacing: "-0.02em",
@@ -37,11 +38,11 @@ const styles = stylex.create({
   links: {
     display: "flex",
     alignItems: "center",
-    gap: 28,
+    gap: spacing.lg,
   },
   link: {
     fontFamily: typography.fontMono,
-    fontSize: 11,
+    fontSize: typography.monoLabel,
     textTransform: "uppercase",
     letterSpacing: "0.1em",
     color: colors.textSecondary,
@@ -51,12 +52,12 @@ const styles = stylex.create({
   status: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    marginLeft: 28,
+    gap: spacing.sm,
+    marginLeft: spacing.lg,
   },
   bead: {
-    width: 7,
-    height: 7,
+    width: "7px",
+    height: "7px",
     borderRadius: "50%",
     backgroundColor: colors.accentRed,
     boxShadow: `0 0 8px 2px color-mix(in srgb, ${colors.accentRed} 50%, transparent)`,
@@ -67,9 +68,9 @@ const styles = stylex.create({
   },
   statusLabel: {
     fontFamily: typography.fontMono,
-    fontSize: 9,
+    fontSize: "9px",
     textTransform: "uppercase",
-    letterSpacing: "0.18em",
+    letterSpacing: typography.labelSpacing,
     color: colors.accentRed,
   },
   mobileHide: {

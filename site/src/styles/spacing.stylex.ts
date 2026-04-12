@@ -7,7 +7,11 @@ export const spacing = stylex.defineVars({
   lg: "24px",
   xl: "32px",
   xxl: "48px",
-  xxxl: "80px",
-  section: "120px",
+  xxxl: "64px",
+  section: "100px",
+  sectionSm: "64px",
+  gap: "20px",
+  gapLg: "56px",
   containerMax: "1120px",
+  containerPad: "32px",
 });

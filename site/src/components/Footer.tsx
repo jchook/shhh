@@ -7,14 +7,14 @@ const styles = stylex.create({
   footer: {
     borderTop: `1px solid ${colors.borderDefault}`,
     paddingBlock: spacing.xxl,
-    paddingInline: spacing.lg,
+    paddingInline: spacing.containerPad,
     maxWidth: spacing.containerMax,
     marginInline: "auto",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: spacing.base,
+    gap: spacing.md,
   },
   left: {
     display: "flex",
@@ -42,9 +42,9 @@ const styles = stylex.create({
   },
   status: {
     fontFamily: typography.fontMono,
-    fontSize: "0.625rem",
+    fontSize: typography.labelSize,
     textTransform: "uppercase",
-    letterSpacing: "0.15em",
+    letterSpacing: typography.labelSpacing,
     color: colors.textMono,
   },
 });

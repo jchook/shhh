@@ -11,4 +11,7 @@ export const typography = stylex.defineVars({
   text2xl: "1.5rem",
   text3xl: "2rem",
   text4xl: "2.75rem",
+  labelSize: "10px",
+  labelSpacing: "0.18em",
+  monoLabel: "11px",
 });

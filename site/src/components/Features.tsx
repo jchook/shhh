@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/colors.stylex.ts";
+import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 
 const features = [
@@ -37,16 +38,16 @@ const features = [
 
 const styles = stylex.create({
   section: {
-    paddingBlock: 100,
-    paddingInline: 32,
-    maxWidth: 1120,
+    paddingBlock: spacing.section,
+    paddingInline: spacing.containerPad,
+    maxWidth: spacing.containerMax,
     marginInline: "auto",
   },
   heading: {
-    fontSize: 32,
-    fontWeight: 700,
+    fontSize: typography.text3xl,
+    fontWeight: "700",
     color: colors.textPrimary,
-    marginBottom: 48,
+    marginBottom: spacing.xxl,
     textAlign: "center",
     letterSpacing: "-0.02em",
   },
@@ -57,13 +58,13 @@ const styles = stylex.create({
       "@media (max-width: 900px)": "repeat(2, 1fr)",
       "@media (max-width: 600px)": "1fr",
     },
-    gap: 20,
+    gap: spacing.gap,
   },
   card: {
     backgroundColor: colors.bgPanel,
     border: `1px solid ${colors.borderDefault}`,
-    borderRadius: 8,
-    padding: 28,
+    borderRadius: "8px",
+    padding: spacing.lg,
     transition: "border-color 0.2s ease, transform 0.2s ease",
     borderColor: {
       default: colors.borderDefault,
@@ -76,22 +77,22 @@ const styles = stylex.create({
   },
   label: {
     fontFamily: typography.fontMono,
-    fontSize: 10,
+    fontSize: typography.labelSize,
     textTransform: "uppercase",
-    letterSpacing: "0.18em",
+    letterSpacing: typography.labelSpacing,
     color: colors.textMono,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   title: {
-    fontSize: 16,
-    fontWeight: 600,
+    fontSize: typography.textBase,
+    fontWeight: "600",
     color: colors.textPrimary,
-    marginBottom: 10,
-    lineHeight: 1.3,
+    marginBottom: spacing.sm,
+    lineHeight: "1.3",
   },
   body: {
-    fontSize: 14,
-    lineHeight: 1.6,
+    fontSize: typography.textSm,
+    lineHeight: "1.6",
     color: colors.textSecondary,
   },
 });

@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/colors.stylex.ts";
+import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 
 const steps = [
@@ -25,19 +26,19 @@ const steps = [
 
 const styles = stylex.create({
   section: {
-    paddingBlock: 100,
-    paddingInline: 32,
-    maxWidth: 1120,
+    paddingBlock: spacing.section,
+    paddingInline: spacing.containerPad,
+    maxWidth: spacing.containerMax,
     marginInline: "auto",
   },
   heading: {
     fontFamily: typography.fontMono,
-    fontSize: 11,
+    fontSize: typography.monoLabel,
     textTransform: "uppercase",
-    letterSpacing: "0.18em",
+    letterSpacing: typography.labelSpacing,
     color: colors.textSecondary,
     textAlign: "center",
-    marginBottom: 48,
+    marginBottom: spacing.xxl,
   },
   grid: {
     display: "grid",
@@ -45,36 +46,36 @@ const styles = stylex.create({
       default: "repeat(3, 1fr)",
       "@media (max-width: 768px)": "1fr",
     },
-    gap: 20,
+    gap: spacing.gap,
   },
   card: {
     backgroundColor: colors.bgPanel,
     border: `1px solid ${colors.borderDefault}`,
-    borderRadius: 8,
-    padding: 28,
+    borderRadius: "8px",
+    padding: spacing.lg,
   },
   label: {
     fontFamily: typography.fontMono,
-    fontSize: 10,
+    fontSize: typography.labelSize,
     textTransform: "uppercase",
-    letterSpacing: "0.18em",
+    letterSpacing: typography.labelSpacing,
     color: colors.textMono,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   icon: {
-    fontSize: 20,
+    fontSize: typography.textXl,
     color: colors.accentGreen,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   title: {
-    fontSize: 18,
-    fontWeight: 600,
+    fontSize: typography.textLg,
+    fontWeight: "600",
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   body: {
-    fontSize: 14,
-    lineHeight: 1.6,
+    fontSize: typography.textSm,
+    lineHeight: "1.6",
     color: colors.textSecondary,
   },
 });

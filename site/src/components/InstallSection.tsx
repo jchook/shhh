@@ -42,7 +42,7 @@ const instructions: Record<
 const styles = stylex.create({
   section: {
     paddingBlock: spacing.section,
-    paddingInline: spacing.lg,
+    paddingInline: spacing.containerPad,
     maxWidth: spacing.containerMax,
     marginInline: "auto",
     textAlign: "center",
@@ -52,6 +52,7 @@ const styles = stylex.create({
     fontWeight: "700",
     color: colors.textPrimary,
     marginBottom: spacing.sm,
+    letterSpacing: "-0.02em",
   },
   subhead: {
     fontSize: typography.textBase,
@@ -62,7 +63,7 @@ const styles = stylex.create({
     display: "inline-flex",
     backgroundColor: colors.bgPanel,
     border: `1px solid ${colors.borderDefault}`,
-    borderRadius: "6px",
+    borderRadius: "8px",
     overflow: "hidden",
     marginBottom: spacing.xl,
   },
@@ -70,7 +71,7 @@ const styles = stylex.create({
     fontFamily: typography.fontMono,
     fontSize: typography.textSm,
     paddingBlock: spacing.sm,
-    paddingInline: spacing.base,
+    paddingInline: spacing.md,
     backgroundColor: "transparent",
     color: colors.textSecondary,
     border: "none",
@@ -87,7 +88,7 @@ const styles = stylex.create({
     marginInline: "auto",
     backgroundColor: colors.bgPanel,
     border: `1px solid ${colors.borderDefault}`,
-    borderRadius: "6px",
+    borderRadius: "8px",
     padding: spacing.lg,
     marginBottom: spacing.xl,
   },
