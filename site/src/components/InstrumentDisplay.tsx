@@ -8,8 +8,10 @@ const PAD_B = 32;
 const PAD_L = 40;
 const PAD_R = 20;
 const THRESH_FRAC = 0.32;
+const BUF_LEN = 400;
+const SAMPLES_PER_SEC = 80;
 
-// Seeded PRNG for deterministic randomization
+// Seeded PRNG
 function mulberry32(seed: number) {
   return () => {
     seed |= 0;
@@ -20,57 +22,57 @@ function mulberry32(seed: number) {
   };
 }
 
-function generateLayers(rng: () => number) {
-  const layers = [];
+interface WaveLayer {
+  freq: number;
+  speed: number;
+  phase: number;
+  amp: number;
+}
+
+function generateLayers(rng: () => number): WaveLayer[] {
+  const layers: WaveLayer[] = [];
   for (let i = 0; i < 5; i++) {
     layers.push({
-      freq: 1.5 + rng() * 4.5,
-      speed: 0.4 + rng() * 2.0,
+      freq: 8 + rng() * 30,
+      speed: 2 + rng() * 6,
       phase: rng() * Math.PI * 2,
       amp: 0.15 + rng() * 0.35,
-      drift: (rng() - 0.5) * 0.3,
     });
   }
   return layers;
 }
 
-// Continuous organic envelope using layered slow oscillators
-// Guarantees at least one threshold crossing within ~25 seconds
-// by using incommensurate frequencies that constructively interfere
-function organicEnvelope(time: number): number {
-  // Layer 1: slow primary swell (period ~13s)
-  const a = Math.sin(time * 0.48 + 0.0) * 0.5 + 0.5;
-  // Layer 2: medium drift (period ~8.5s)
-  const b = Math.sin(time * 0.74 + 1.2) * 0.5 + 0.5;
-  // Layer 3: faster breathing (period ~5.3s)
-  const c = Math.sin(time * 1.19 + 3.1) * 0.5 + 0.5;
-  // Layer 4: subtle fast variation (period ~3.1s)
-  const d = Math.sin(time * 2.03 + 0.7) * 0.5 + 0.5;
-  // Layer 5: very slow macro swell (period ~21s)
-  const e = Math.sin(time * 0.30 + 2.0) * 0.5 + 0.5;
+// Continuous organic envelope — incommensurate frequencies guarantee
+// threshold crossings within ~25s without any binary switching
+function organicEnvelope(t: number): number {
+  const a = Math.sin(t * 0.48) * 0.5 + 0.5;
+  const b = Math.sin(t * 0.74 + 1.2) * 0.5 + 0.5;
+  const c = Math.sin(t * 1.19 + 3.1) * 0.5 + 0.5;
+  const d = Math.sin(t * 2.03 + 0.7) * 0.5 + 0.5;
+  const e = Math.sin(t * 0.30 + 2.0) * 0.5 + 0.5;
 
-  // Weighted blend — the product of some terms creates natural
-  // "convergence" moments where everything aligns and amplitude peaks.
-  // The sum gives a continuous base level so it never fully flatlines.
-  const blend =
-    a * 0.30 +
-    b * 0.25 +
-    c * 0.20 +
-    d * 0.10 +
-    e * 0.15;
-
-  // Convergence boost: when multiple oscillators are high simultaneously,
-  // multiply to create organic peaks
+  const blend = a * 0.30 + b * 0.25 + c * 0.20 + d * 0.10 + e * 0.15;
   const convergence = a * b * c;
-
-  // Mix: base continuous movement + convergence peaks
   const raw = blend * 0.55 + convergence * 0.9;
+  return Math.min(raw * raw * 1.8 + 0.06, 1.0);
+}
 
-  // Shape: apply a soft curve so low volumes stay present
-  // and peaks feel natural rather than clipped
-  const shaped = raw * raw * 1.8 + 0.06;
-
-  return Math.min(shaped, 1.0);
+// Compute a single waveform sample at birth time t.
+// This value is frozen once written to the buffer.
+function computeSample(
+  t: number,
+  groups: { layers: WaveLayer[]; weight: number }[],
+): number {
+  const env = organicEnvelope(t);
+  let total = 0;
+  for (const group of groups) {
+    let sum = 0;
+    for (const layer of group.layers) {
+      sum += Math.sin(t * layer.freq + layer.phase) * layer.amp;
+    }
+    total += sum * group.weight;
+  }
+  return total * env;
 }
 
 export function InstrumentDisplay() {
@@ -108,32 +110,84 @@ export function InstrumentDisplay() {
     const SHH_FONT = "600 22px 'Inter', sans-serif";
 
     const rng = mulberry32(42);
-    const waveGroups = [
-      { layers: generateLayers(rng), color: "74, 154, 90", weight: 1.0 },
-      { layers: generateLayers(rng), color: "92, 184, 108", weight: 0.7 },
-      { layers: generateLayers(rng), color: "60, 180, 100", weight: 0.5 },
+    const groups = [
+      { layers: generateLayers(rng), weight: 1.0 },
+      { layers: generateLayers(rng), weight: 0.7 },
+      { layers: generateLayers(rng), weight: 0.5 },
+    ];
+    const groupColors = [
+      "74, 154, 90",
+      "92, 184, 108",
+      "60, 180, 100",
     ];
 
-    // Threshold in envelope space — tuned so peaks cross
-    // but the continuous motion means it's not binary
-    const THRESH_ENV = 0.55;
+    // Per-group buffers — each sample frozen at birth
+    const bufs: Float32Array[] = groups.map(() => new Float32Array(BUF_LEN));
+    // Also store envelope at each sample for threshold checking
+    const envBuf = new Float32Array(BUF_LEN);
 
-    // Smooth the "crossed" state so it doesn't flicker
+    // Pre-fill buffers with historical data
+    const preStartT = -BUF_LEN / SAMPLES_PER_SEC;
+    for (let i = 0; i < BUF_LEN; i++) {
+      const t = preStartT + i / SAMPLES_PER_SEC;
+      envBuf[i] = organicEnvelope(t);
+      for (let g = 0; g < groups.length; g++) {
+        let sum = 0;
+        for (const layer of groups[g].layers) {
+          sum += Math.sin(t * layer.freq + layer.phase) * layer.amp;
+        }
+        bufs[g][i] = sum * envBuf[i] * groups[g].weight;
+      }
+    }
+
+    let sampleAcc = 0;
+    let simTime = 0; // tracks the time of the most recent sample
     let crossedSmooth = 0;
 
-    function draw(time: number) {
-      const env = organicEnvelope(time);
-      const crossed = env > THRESH_ENV;
+    const THRESH_ENV = 0.55;
 
-      // Smooth transition for visual states
+    function draw(dt: number) {
+      // Push new samples into buffers
+      sampleAcc += dt * SAMPLES_PER_SEC;
+      const newCount = Math.floor(sampleAcc);
+      sampleAcc -= newCount;
+
+      for (let n = 0; n < newCount; n++) {
+        simTime += 1 / SAMPLES_PER_SEC;
+
+        // Shift all buffers left by 1
+        for (let g = 0; g < groups.length; g++) {
+          bufs[g].copyWithin(0, 1);
+        }
+        envBuf.copyWithin(0, 1);
+
+        // Write new sample at the end — frozen forever
+        const env = organicEnvelope(simTime);
+        envBuf[BUF_LEN - 1] = env;
+        for (let g = 0; g < groups.length; g++) {
+          let sum = 0;
+          for (const layer of groups[g].layers) {
+            sum += Math.sin(simTime * layer.freq + layer.phase) * layer.amp;
+          }
+          bufs[g][BUF_LEN - 1] = sum * env * groups[g].weight;
+        }
+      }
+
+      // Check recent samples for threshold crossing
+      let crossed = false;
+      for (let i = BUF_LEN - 20; i < BUF_LEN; i++) {
+        if (envBuf[i] > THRESH_ENV) {
+          crossed = true;
+          break;
+        }
+      }
       const target = crossed ? 1 : 0;
       crossedSmooth += (target - crossedSmooth) * 0.08;
 
       ctx!.clearRect(0, 0, W, H);
 
-      // Outer bezel
+      // Bezel + display
       roundRect(ctx!, 0, 0, W, H, 12, "#1e1e22", "#3a3a42", 1.5);
-      // Inner display
       roundRect(ctx!, 10, 10, W - 20, H - 20, 6, "#111114", "#2a2a30", 1);
 
       // Grid
@@ -146,9 +200,9 @@ export function InstrumentDisplay() {
         drawLine(ctx!, plotL + (plotW * i) / 5, plotT, plotL + (plotW * i) / 5, plotB);
       }
 
-      // Threshold line — intensity follows smooth state
-      const threshAlpha = 0.6 + crossedSmooth * 0.4;
+      // Threshold line
       const threshR = Math.round(196 + crossedSmooth * 28);
+      const threshAlpha = 0.6 + crossedSmooth * 0.4;
       ctx!.strokeStyle = `rgba(${threshR}, 64, 64, ${threshAlpha})`;
       ctx!.lineWidth = 1 + crossedSmooth * 0.5;
       ctx!.setLineDash([6, 4]);
@@ -163,93 +217,72 @@ export function InstrumentDisplay() {
       ctx!.letterSpacing = "0.15em";
       ctx!.fillText("THRESHOLD \u25B4", plotR - 2, threshY + 5);
 
-      // Clip to plot area
+      // Clip to plot
       ctx!.save();
       ctx!.beginPath();
       ctx!.rect(plotL, plotT, plotW, plotH);
       ctx!.clip();
 
-      // Draw wave groups
-      const points = 300;
-      const allGroupVals: number[][] = [];
+      const barW = plotW / BUF_LEN;
 
-      for (const group of waveGroups) {
-        const vals: number[] = [];
-        for (let i = 0; i <= points; i++) {
-          const frac = i / points;
-          const xWorld = frac * 12 - time * 1.2;
-          let sum = 0;
-          for (const layer of group.layers) {
-            const f = layer.freq + Math.sin(time * 0.1) * layer.drift;
-            sum +=
-              Math.sin(xWorld * f + time * layer.speed + layer.phase) *
-              layer.amp;
-          }
-          vals.push(sum * env * group.weight);
-        }
-        allGroupVals.push(vals);
+      // Draw wave groups back-to-front for depth layering
+      // g=2 is furthest back (dimmest), g=0 is front (brightest)
+      const depthOrder = [2, 1, 0];
+      const fillAlphas = [0.06, 0.10, 0.18];
+      const strokeAlphas = [0.25, 0.45, 0.80];
+      const strokeWidths = [0.8, 1.2, 1.8];
+      const mirrorScales = [0.5, 0.6, 0.7];
 
-        // Gradient fill under wave
+      for (const g of depthOrder) {
+        const buf = bufs[g];
+        const color = groupColors[g];
+        const fillA = fillAlphas[g];
+        const strokeA = strokeAlphas[g];
+        const strokeW = strokeWidths[g];
+        const mirrorScale = mirrorScales[g];
+
+        // Gradient fill above center
         ctx!.beginPath();
         ctx!.moveTo(plotL, centerY);
-        for (let i = 0; i <= points; i++) {
-          ctx!.lineTo(plotL + (i / points) * plotW, centerY - vals[i] * maxAmpPx);
+        for (let i = 0; i < BUF_LEN; i++) {
+          const x = plotL + (i + 0.5) * barW;
+          ctx!.lineTo(x, centerY - buf[i] * maxAmpPx);
         }
         ctx!.lineTo(plotR, centerY);
         ctx!.closePath();
-
         const grad = ctx!.createLinearGradient(0, centerY - maxAmpPx, 0, centerY);
-        grad.addColorStop(0, `rgba(${group.color}, 0.12)`);
-        grad.addColorStop(1, `rgba(${group.color}, 0.0)`);
+        grad.addColorStop(0, `rgba(${color}, ${fillA})`);
+        grad.addColorStop(1, `rgba(${color}, 0.0)`);
         ctx!.fillStyle = grad;
         ctx!.fill();
 
-        // Bottom mirror
+        // Mirror fill below center — dimmer for back layers
         ctx!.beginPath();
         ctx!.moveTo(plotL, centerY);
-        for (let i = 0; i <= points; i++) {
-          ctx!.lineTo(
-            plotL + (i / points) * plotW,
-            centerY + vals[i] * maxAmpPx * 0.7,
-          );
+        for (let i = 0; i < BUF_LEN; i++) {
+          const x = plotL + (i + 0.5) * barW;
+          ctx!.lineTo(x, centerY + buf[i] * maxAmpPx * mirrorScale);
         }
         ctx!.lineTo(plotR, centerY);
         ctx!.closePath();
-
         const grad2 = ctx!.createLinearGradient(0, centerY, 0, centerY + maxAmpPx);
-        grad2.addColorStop(0, `rgba(${group.color}, 0.0)`);
-        grad2.addColorStop(1, `rgba(${group.color}, 0.08)`);
+        grad2.addColorStop(0, `rgba(${color}, 0.0)`);
+        grad2.addColorStop(1, `rgba(${color}, ${fillA * 0.5})`);
         ctx!.fillStyle = grad2;
         ctx!.fill();
 
-        // Wave stroke
+        // Wave stroke — thicker and brighter for front layers
         ctx!.beginPath();
-        ctx!.strokeStyle = `rgba(${group.color}, ${0.3 + group.weight * 0.5})`;
-        ctx!.lineWidth = 1 + group.weight * 0.5;
+        ctx!.strokeStyle = `rgba(${color}, ${strokeA})`;
+        ctx!.lineWidth = strokeW;
         ctx!.lineJoin = "round";
-        for (let i = 0; i <= points; i++) {
-          const x = plotL + (i / points) * plotW;
-          const y = centerY - vals[i] * maxAmpPx;
+        for (let i = 0; i < BUF_LEN; i++) {
+          const x = plotL + (i + 0.5) * barW;
+          const y = centerY - buf[i] * maxAmpPx;
           if (i === 0) ctx!.moveTo(x, y);
           else ctx!.lineTo(x, y);
         }
         ctx!.stroke();
-      }
-
-      // Constructive interference glow
-      for (let i = 0; i < points; i++) {
-        let total = 0;
-        for (const vals of allGroupVals) total += vals[i];
-        const intensity = Math.abs(total);
-        if (intensity > 0.2) {
-          const x = plotL + (i / points) * plotW;
-          const y = centerY - total * maxAmpPx;
-          const alpha = Math.min(1, (intensity - 0.2) * 1.8);
-          ctx!.fillStyle = `rgba(130, 230, 140, ${alpha * 0.35})`;
-          ctx!.beginPath();
-          ctx!.arc(x, y, 2 + intensity * 3, 0, Math.PI * 2);
-          ctx!.fill();
-        }
       }
 
       ctx!.restore(); // unclip
@@ -259,10 +292,9 @@ export function InstrumentDisplay() {
       ctx!.lineWidth = 0.5;
       drawLine(ctx!, plotL, centerY, plotR, centerY);
 
-      // REC indicator
+      // REC
       const recY = plotT + 12;
-      const recAlpha = 0.6 + crossedSmooth * 0.4;
-      ctx!.fillStyle = `rgba(${Math.round(196 + crossedSmooth * 28)}, ${Math.round(64 + crossedSmooth * 16)}, ${Math.round(64 + crossedSmooth * 16)}, ${recAlpha})`;
+      ctx!.fillStyle = `rgba(${Math.round(196 + crossedSmooth * 28)}, ${Math.round(64 + crossedSmooth * 16)}, ${Math.round(64 + crossedSmooth * 16)}, ${0.6 + crossedSmooth * 0.4})`;
       ctx!.beginPath();
       ctx!.arc(plotR - 42, recY, 3.5 + crossedSmooth * 1.5, 0, Math.PI * 2);
       ctx!.fill();
@@ -272,7 +304,7 @@ export function InstrumentDisplay() {
       ctx!.letterSpacing = "0.15em";
       ctx!.fillText("REC", plotR - 6, recY);
 
-      // SHH! — fades in/out smoothly
+      // SHH!
       if (crossedSmooth > 0.05) {
         ctx!.save();
         ctx!.globalAlpha = Math.min(1, crossedSmooth * 1.5);
@@ -295,28 +327,28 @@ export function InstrumentDisplay() {
       ctx!.fillStyle = "#4a4a52";
       ctx!.letterSpacing = "0.12em";
       ctx!.shadowBlur = 0;
-
       ctx!.textAlign = "left";
       ctx!.textBaseline = "top";
       ctx!.fillText("dB", plotL + 4, plotT + 4);
-
       ctx!.textBaseline = "bottom";
       ctx!.fillText("RMS", plotL + 4, plotB - 4);
-
       ctx!.textAlign = "right";
       ctx!.fillText("TIME", plotR - 4, plotB - 4);
     }
 
     if (prefersReduced) {
-      draw(2.0);
+      draw(0);
       return;
     }
 
     startRef.current = performance.now();
+    let lastNow = 0;
 
     function tick() {
       const now = (performance.now() - startRef.current) / 1000;
-      draw(now);
+      const dt = Math.min(now - lastNow, 0.1);
+      lastNow = now;
+      draw(dt);
       frameRef.current = requestAnimationFrame(tick);
     }
 
