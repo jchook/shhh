@@ -1,4 +1,11 @@
 import { useRef, useEffect } from "preact/hooks";
+import {
+  mulberry32,
+  generateLayers,
+  organicEnvelope,
+  computeLayerSample,
+} from "../audio.ts";
+import type { WaveLayer } from "../audio.ts";
 
 const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 const W = 480;
@@ -10,70 +17,6 @@ const PAD_R = 20;
 const THRESH_FRAC = 0.32;
 const BUF_LEN = 400;
 const SAMPLES_PER_SEC = 80;
-
-// Seeded PRNG
-function mulberry32(seed: number) {
-  return () => {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-interface WaveLayer {
-  freq: number;
-  speed: number;
-  phase: number;
-  amp: number;
-}
-
-function generateLayers(rng: () => number): WaveLayer[] {
-  const layers: WaveLayer[] = [];
-  for (let i = 0; i < 5; i++) {
-    layers.push({
-      freq: 8 + rng() * 30,
-      speed: 2 + rng() * 6,
-      phase: rng() * Math.PI * 2,
-      amp: 0.15 + rng() * 0.35,
-    });
-  }
-  return layers;
-}
-
-// Continuous organic envelope — incommensurate frequencies guarantee
-// threshold crossings within ~25s without any binary switching
-function organicEnvelope(t: number): number {
-  const a = Math.sin(t * 0.48) * 0.5 + 0.5;
-  const b = Math.sin(t * 0.74 + 1.2) * 0.5 + 0.5;
-  const c = Math.sin(t * 1.19 + 3.1) * 0.5 + 0.5;
-  const d = Math.sin(t * 2.03 + 0.7) * 0.5 + 0.5;
-  const e = Math.sin(t * 0.30 + 2.0) * 0.5 + 0.5;
-
-  const blend = a * 0.30 + b * 0.25 + c * 0.20 + d * 0.10 + e * 0.15;
-  const convergence = a * b * c;
-  const raw = blend * 0.55 + convergence * 0.9;
-  return Math.min(raw * raw * 1.8 + 0.06, 1.0);
-}
-
-// Compute a single waveform sample at birth time t.
-// This value is frozen once written to the buffer.
-function computeSample(
-  t: number,
-  groups: { layers: WaveLayer[]; weight: number }[],
-): number {
-  const env = organicEnvelope(t);
-  let total = 0;
-  for (const group of groups) {
-    let sum = 0;
-    for (const layer of group.layers) {
-      sum += Math.sin(t * layer.freq + layer.phase) * layer.amp;
-    }
-    total += sum * group.weight;
-  }
-  return total * env;
-}
 
 export function InstrumentDisplay() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,7 +66,6 @@ export function InstrumentDisplay() {
 
     // Per-group buffers — each sample frozen at birth
     const bufs: Float32Array[] = groups.map(() => new Float32Array(BUF_LEN));
-    // Also store envelope at each sample for threshold checking
     const envBuf = new Float32Array(BUF_LEN);
 
     // Pre-fill buffers with historical data
@@ -132,48 +74,37 @@ export function InstrumentDisplay() {
       const t = preStartT + i / SAMPLES_PER_SEC;
       envBuf[i] = organicEnvelope(t);
       for (let g = 0; g < groups.length; g++) {
-        let sum = 0;
-        for (const layer of groups[g].layers) {
-          sum += Math.sin(t * layer.freq + layer.phase) * layer.amp;
-        }
-        bufs[g][i] = sum * envBuf[i] * groups[g].weight;
+        bufs[g][i] =
+          computeLayerSample(t, groups[g].layers) * envBuf[i] * groups[g].weight;
       }
     }
 
     let sampleAcc = 0;
-    let simTime = 0; // tracks the time of the most recent sample
+    let simTime = 0;
     let crossedSmooth = 0;
 
     const THRESH_ENV = 0.55;
 
     function draw(dt: number) {
-      // Push new samples into buffers
       sampleAcc += dt * SAMPLES_PER_SEC;
       const newCount = Math.floor(sampleAcc);
       sampleAcc -= newCount;
 
       for (let n = 0; n < newCount; n++) {
         simTime += 1 / SAMPLES_PER_SEC;
-
-        // Shift all buffers left by 1
-        for (let g = 0; g < groups.length; g++) {
-          bufs[g].copyWithin(0, 1);
-        }
+        for (let g = 0; g < groups.length; g++) bufs[g].copyWithin(0, 1);
         envBuf.copyWithin(0, 1);
 
-        // Write new sample at the end — frozen forever
         const env = organicEnvelope(simTime);
         envBuf[BUF_LEN - 1] = env;
         for (let g = 0; g < groups.length; g++) {
-          let sum = 0;
-          for (const layer of groups[g].layers) {
-            sum += Math.sin(simTime * layer.freq + layer.phase) * layer.amp;
-          }
-          bufs[g][BUF_LEN - 1] = sum * env * groups[g].weight;
+          bufs[g][BUF_LEN - 1] =
+            computeLayerSample(simTime, groups[g].layers) *
+            env *
+            groups[g].weight;
         }
       }
 
-      // Check recent samples for threshold crossing
       let crossed = false;
       for (let i = BUF_LEN - 20; i < BUF_LEN; i++) {
         if (envBuf[i] > THRESH_ENV) {
@@ -193,12 +124,10 @@ export function InstrumentDisplay() {
       // Grid
       ctx!.strokeStyle = "#2a2a30";
       ctx!.lineWidth = 0.5;
-      for (let i = 1; i < 4; i++) {
+      for (let i = 1; i < 4; i++)
         drawLine(ctx!, plotL, plotT + (plotH * i) / 4, plotR, plotT + (plotH * i) / 4);
-      }
-      for (let i = 1; i < 5; i++) {
+      for (let i = 1; i < 5; i++)
         drawLine(ctx!, plotL + (plotW * i) / 5, plotT, plotL + (plotW * i) / 5, plotB);
-      }
 
       // Threshold line
       const threshR = Math.round(196 + crossedSmooth * 28);
@@ -225,8 +154,7 @@ export function InstrumentDisplay() {
 
       const barW = plotW / BUF_LEN;
 
-      // Draw wave groups back-to-front for depth layering
-      // g=2 is furthest back (dimmest), g=0 is front (brightest)
+      // Draw wave groups back-to-front for depth
       const depthOrder = [2, 1, 0];
       const fillAlphas = [0.06, 0.10, 0.18];
       const strokeAlphas = [0.25, 0.45, 0.80];
@@ -241,13 +169,10 @@ export function InstrumentDisplay() {
         const strokeW = strokeWidths[g];
         const mirrorScale = mirrorScales[g];
 
-        // Gradient fill above center
         ctx!.beginPath();
         ctx!.moveTo(plotL, centerY);
-        for (let i = 0; i < BUF_LEN; i++) {
-          const x = plotL + (i + 0.5) * barW;
-          ctx!.lineTo(x, centerY - buf[i] * maxAmpPx);
-        }
+        for (let i = 0; i < BUF_LEN; i++)
+          ctx!.lineTo(plotL + (i + 0.5) * barW, centerY - buf[i] * maxAmpPx);
         ctx!.lineTo(plotR, centerY);
         ctx!.closePath();
         const grad = ctx!.createLinearGradient(0, centerY - maxAmpPx, 0, centerY);
@@ -256,13 +181,10 @@ export function InstrumentDisplay() {
         ctx!.fillStyle = grad;
         ctx!.fill();
 
-        // Mirror fill below center — dimmer for back layers
         ctx!.beginPath();
         ctx!.moveTo(plotL, centerY);
-        for (let i = 0; i < BUF_LEN; i++) {
-          const x = plotL + (i + 0.5) * barW;
-          ctx!.lineTo(x, centerY + buf[i] * maxAmpPx * mirrorScale);
-        }
+        for (let i = 0; i < BUF_LEN; i++)
+          ctx!.lineTo(plotL + (i + 0.5) * barW, centerY + buf[i] * maxAmpPx * mirrorScale);
         ctx!.lineTo(plotR, centerY);
         ctx!.closePath();
         const grad2 = ctx!.createLinearGradient(0, centerY, 0, centerY + maxAmpPx);
@@ -271,7 +193,6 @@ export function InstrumentDisplay() {
         ctx!.fillStyle = grad2;
         ctx!.fill();
 
-        // Wave stroke — thicker and brighter for front layers
         ctx!.beginPath();
         ctx!.strokeStyle = `rgba(${color}, ${strokeA})`;
         ctx!.lineWidth = strokeW;
@@ -285,7 +206,7 @@ export function InstrumentDisplay() {
         ctx!.stroke();
       }
 
-      ctx!.restore(); // unclip
+      ctx!.restore();
 
       // Center line
       ctx!.strokeStyle = "#2a2a30";

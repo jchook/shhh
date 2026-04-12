@@ -1,49 +1,16 @@
 import { useRef, useEffect, useState, useCallback } from "preact/hooks";
+import {
+  mulberry32,
+  generateLayers,
+  organicEnvelope,
+  generateAudioWindow,
+  computeRMS,
+  computePeak,
+} from "../audio.ts";
 
 const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 const W = 460;
 const H = 340;
-
-function envelope(t: number): number {
-  const a = Math.sin(t * 0.52) * 0.5 + 0.5;
-  const b = Math.sin(t * 0.81 + 1.4) * 0.5 + 0.5;
-  const c = Math.sin(t * 1.33 + 2.8) * 0.5 + 0.5;
-  const blend = a * 0.4 + b * 0.35 + c * 0.25;
-  const conv = a * b * c;
-  const raw = blend * 0.5 + conv * 0.95;
-  return Math.min(raw * raw * 1.6 + 0.08, 1.0);
-}
-
-function audioSamples(t: number, count: number): Float32Array {
-  const out = new Float32Array(count);
-  const env = envelope(t);
-  for (let i = 0; i < count; i++) {
-    const x = i / count;
-    const sig =
-      Math.sin(x * 40 + t * 12) * 0.4 +
-      Math.sin(x * 67 + t * 19) * 0.25 +
-      Math.sin(x * 103 + t * 7) * 0.15 +
-      Math.sin(x * 151 + t * 31) * 0.12 +
-      Math.sin(x * 211 + t * 4) * 0.08;
-    out[i] = sig * env;
-  }
-  return out;
-}
-
-function computeRMS(data: Float32Array): number {
-  let sum = 0;
-  for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
-  return Math.sqrt(sum / data.length);
-}
-
-function computePeak(data: Float32Array): number {
-  let max = 0;
-  for (let i = 0; i < data.length; i++) {
-    const a = Math.abs(data[i]);
-    if (a > max) max = a;
-  }
-  return max;
-}
 
 // Layout constants
 const MARGIN = 16;
@@ -56,21 +23,28 @@ const BAR_L = MARGIN + LABEL_W;
 const BAR_R = W - MARGIN - 50;
 const BAR_FULL_W = BAR_R - BAR_L;
 
-// Sensitivity blend bar Y position (after RMS + Peak meters + gaps)
+// Sensitivity blend bar Y position
 const BLEND_Y = FLOW_Y + (METER_H + GAP) * 2 + 4;
 const BLEND_BAR_Y = BLEND_Y + 4;
 const BLEND_BAR_H = METER_H - 8;
+
+// Use the same seed as InstrumentDisplay so the waveforms are consistent
+const rng = mulberry32(42);
+const WAVE_GROUPS = [
+  { layers: generateLayers(rng), weight: 1.0 },
+  { layers: generateLayers(rng), weight: 0.7 },
+  { layers: generateLayers(rng), weight: 0.5 },
+];
 
 export function LoudnessDiagram() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<number>(0);
   const startRef = useRef<number>(0);
   const sensitivityRef = useRef(0.6);
-  const [sensitivity, setSensitivity] = useState(0.6);
+  const [, setSensitivity] = useState(0.6);
   const draggingRef = useRef(false);
   const hoveringRef = useRef(false);
 
-  // Convert mouse/touch position to canvas coordinates
   const toCanvasX = useCallback((clientX: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return 0;
@@ -166,7 +140,9 @@ export function LoudnessDiagram() {
 
     function draw(time: number) {
       const sens = sensitivityRef.current;
-      const samples = audioSamples(time, 256);
+
+      // Use the same wave groups as the hero display
+      const samples = generateAudioWindow(time, 256, WAVE_GROUPS);
       const rms = computeRMS(samples);
       const peak = computePeak(samples);
       const hybrid = (1 - sens) * rms + sens * peak;
@@ -221,7 +197,6 @@ export function LoudnessDiagram() {
       // --- SIGNAL FLOW ---
       let y = FLOW_Y;
 
-      // Arrow from waveform
       ctx!.strokeStyle = "#3a3a42";
       ctx!.lineWidth = 1;
       ctx!.setLineDash([3, 3]);
@@ -239,7 +214,6 @@ export function LoudnessDiagram() {
       // --- SENSITIVITY (interactive) ---
       const isHover = hoveringRef.current || draggingRef.current;
 
-      // Label
       ctx!.font = FONT_LABEL;
       ctx!.fillStyle = isHover ? "#e8e6e3" : "#8a8a96";
       ctx!.textAlign = "left";
@@ -247,13 +221,11 @@ export function LoudnessDiagram() {
       ctx!.letterSpacing = "0.15em";
       ctx!.fillText("SENSITIVITY", colL, y + METER_H / 2);
 
-      // Blend bar background
       ctx!.fillStyle = "#111114";
       ctx!.beginPath();
       ctx!.roundRect(BAR_L, y + 4, BAR_FULL_W, METER_H - 8, 3);
       ctx!.fill();
 
-      // Highlight border on hover/drag
       if (isHover) {
         ctx!.strokeStyle = "#5cb86c";
         ctx!.lineWidth = 1;
@@ -265,15 +237,6 @@ export function LoudnessDiagram() {
       const peakW = BAR_FULL_W * sens;
       const rmsW = BAR_FULL_W - peakW;
 
-      // RMS portion (right side — what's left after peak)
-      if (rmsW > 0) {
-        ctx!.fillStyle = "rgba(74, 154, 90, 0.3)";
-        ctx!.beginPath();
-        ctx!.roundRect(BAR_L + peakW, y + 4, rmsW, METER_H - 8, [0, 3, 3, 0]);
-        ctx!.fill();
-      }
-
-      // Peak portion (left side — grows as you drag right)
       if (peakW > 0) {
         ctx!.fillStyle = "rgba(200, 160, 60, 0.3)";
         ctx!.beginPath();
@@ -281,13 +244,20 @@ export function LoudnessDiagram() {
         ctx!.fill();
       }
 
-      // Drag thumb — vertical bar at the split point
+      if (rmsW > 0) {
+        ctx!.fillStyle = "rgba(74, 154, 90, 0.3)";
+        ctx!.beginPath();
+        ctx!.roundRect(BAR_L + peakW, y + 4, rmsW, METER_H - 8, [0, 3, 3, 0]);
+        ctx!.fill();
+      }
+
+      // Drag thumb
       const thumbX = BAR_L + peakW;
       const thumbW = isHover ? 4 : 2;
       ctx!.fillStyle = isHover ? "#e8e6e3" : "#8a8a96";
       ctx!.fillRect(thumbX - thumbW / 2, y + 3, thumbW, METER_H - 6);
 
-      // Labels inside blend bar
+      // Labels
       ctx!.font = FONT_SM;
       ctx!.textBaseline = "middle";
       ctx!.letterSpacing = "0.1em";
@@ -302,14 +272,13 @@ export function LoudnessDiagram() {
         ctx!.fillText("RMS", BAR_L + peakW + rmsW / 2, y + METER_H / 2);
       }
 
-      // Value
       ctx!.font = FONT_VAL;
       ctx!.fillStyle = isHover ? "#e8e6e3" : "#8a8a96";
       ctx!.textAlign = "right";
       ctx!.textBaseline = "middle";
       ctx!.fillText(sens.toFixed(2), valX, y + METER_H / 2);
 
-      // "drag to adjust" hint
+      // Hint
       ctx!.font = FONT_HINT;
       ctx!.fillStyle = isHover ? "rgba(92, 184, 108, 0.6)" : "rgba(138, 138, 150, 0.4)";
       ctx!.textAlign = "center";
@@ -323,7 +292,6 @@ export function LoudnessDiagram() {
 
       y += METER_H + GAP + 12;
 
-      // Arrow
       ctx!.strokeStyle = "#3a3a42";
       ctx!.lineWidth = 1;
       ctx!.setLineDash([3, 3]);
@@ -334,7 +302,6 @@ export function LoudnessDiagram() {
       drawMeter(ctx!, "HYBRID", sHybrid, "92, 184, 108", colL, y, LABEL_W, BAR_L, BAR_FULL_W, valX, METER_H, FONT_LABEL, FONT_VAL);
       y += METER_H + GAP;
 
-      // Arrow
       ctx!.strokeStyle = "#3a3a42";
       ctx!.lineWidth = 1;
       ctx!.setLineDash([3, 3]);
