@@ -7,36 +7,33 @@ const PAD_T = 40;
 const PAD_B = 32;
 const PAD_L = 40;
 const PAD_R = 20;
-const THRESH_FRAC = 0.32; // threshold at 32% from top of plot area
+const THRESH_FRAC = 0.32;
 
-// Smooth noise using layered sine waves with slowly drifting phases
-function sampleWaveform(x: number, time: number, amp: number): number {
-  return (
-    Math.sin(x * 5.0 + time * 1.8) * 0.35 +
-    Math.sin(x * 11.0 + time * 2.7 + 1.0) * 0.25 +
-    Math.sin(x * 23.0 + time * 0.9 + 2.5) * 0.15 +
-    Math.sin(x * 7.3 - time * 1.3 + 0.7) * 0.15 +
-    Math.sin(x * 37.0 + time * 4.1) * 0.10
-  ) * amp;
+// Seeded pseudo-random for deterministic but varied behavior
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-function getAmplitude(time: number): number {
-  const base = 0.18;
-  // Spike pattern: ramp up, hold briefly, decay — every ~6 seconds
-  const cycle = time % 6;
-  if (cycle < 3.5) return base;
-  if (cycle < 4.2) {
-    // ramp up
-    const t = (cycle - 3.5) / 0.7;
-    return base + t * t * 0.72;
+// Generate randomized wave layer parameters
+function generateLayers(rng: () => number) {
+  const count = 5;
+  const layers = [];
+  for (let i = 0; i < count; i++) {
+    layers.push({
+      freq: 1.5 + rng() * 4.5,       // spatial frequency
+      speed: 0.4 + rng() * 2.0,       // scroll speed
+      phase: rng() * Math.PI * 2,     // initial phase
+      amp: 0.15 + rng() * 0.35,       // relative amplitude
+      drift: (rng() - 0.5) * 0.3,     // slow frequency drift
+    });
   }
-  if (cycle < 4.6) {
-    // hold near peak
-    return base + 0.72 - (cycle - 4.2) * 0.1;
-  }
-  // decay
-  const t = (cycle - 4.6) / 1.4;
-  return base + (0.68 - t * 0.68) * Math.max(0, 1 - t);
+  return layers;
 }
 
 export function InstrumentDisplay() {
@@ -67,43 +64,76 @@ export function InstrumentDisplay() {
     const plotH = plotB - plotT;
     const threshY = plotT + plotH * THRESH_FRAC;
     const centerY = plotT + plotH * 0.55;
+    const maxAmpPx = plotH * 0.40;
 
     const LABEL_FONT = "500 9px 'Inter', sans-serif";
     const LABEL_SMALL_FONT = "500 8px 'Inter', sans-serif";
     const SHH_FONT = "600 22px 'Inter', sans-serif";
+
+    // Generate 3 independent wave groups with different colors/opacities
+    const rng = mulberry32(42);
+    const waveGroups = [
+      { layers: generateLayers(rng), color: "74, 154, 90",  weight: 1.0 },
+      { layers: generateLayers(rng), color: "92, 184, 108", weight: 0.7 },
+      { layers: generateLayers(rng), color: "60, 180, 100", weight: 0.5 },
+    ];
+
+    // Amplitude envelope — varied spike pattern
+    function getEnvelope(time: number): number {
+      // Multiple overlapping spike cycles at different rates for variety
+      const a = spikeEnv(time, 6.5, 0.0);
+      const b = spikeEnv(time, 8.3, 2.1);
+      const c = spikeEnv(time, 11.7, 5.4);
+      return Math.max(a, b, c);
+    }
+
+    function spikeEnv(time: number, period: number, offset: number): number {
+      const cycle = (time + offset) % period;
+      const idle = 0.10 + Math.sin(time * 0.5 + offset) * 0.03;
+      if (cycle < period - 2.5) return idle;
+      if (cycle < period - 1.8) {
+        // ramp
+        const t = (cycle - (period - 2.5)) / 0.7;
+        return idle + t * t * 0.8;
+      }
+      if (cycle < period - 1.3) {
+        // sustain
+        return 0.85 + Math.sin(time * 9 + offset) * 0.06;
+      }
+      // decay
+      const t = (cycle - (period - 1.3)) / 1.3;
+      return 0.85 * Math.max(0, 1 - t * t);
+    }
 
     function draw(time: number) {
       ctx!.clearRect(0, 0, W, H);
 
       // Outer bezel
       roundRect(ctx!, 0, 0, W, H, 12, "#1e1e22", "#3a3a42", 1.5);
-
       // Inner display
       roundRect(ctx!, 10, 10, W - 20, H - 20, 6, "#111114", "#2a2a30", 1);
 
-      // Grid lines
+      // Grid
       ctx!.strokeStyle = "#2a2a30";
       ctx!.lineWidth = 0.5;
       for (let i = 1; i < 4; i++) {
-        const y = plotT + (plotH * i) / 4;
-        line(ctx!, plotL, y, plotR, y);
+        drawLine(ctx!, plotL, plotT + (plotH * i) / 4, plotR, plotT + (plotH * i) / 4);
       }
       for (let i = 1; i < 5; i++) {
-        const x = plotL + (plotW * i) / 5;
-        line(ctx!, x, plotT, x, plotB);
+        drawLine(ctx!, plotL + (plotW * i) / 5, plotT, plotL + (plotW * i) / 5, plotB);
       }
 
-      // Threshold line
-      const amp = getAmplitude(time);
-      const crossed = amp > 0.55;
+      const env = getEnvelope(time);
+      const crossed = env > 0.55;
 
+      // Threshold line
       ctx!.strokeStyle = crossed ? "#e05050" : "#c44040";
       ctx!.lineWidth = crossed ? 1.5 : 1;
       ctx!.setLineDash([6, 4]);
-      line(ctx!, plotL, threshY, plotR, threshY);
+      drawLine(ctx!, plotL, threshY, plotR, threshY);
       ctx!.setLineDash([]);
 
-      // Threshold label — below line, right-aligned
+      // Threshold label
       ctx!.font = LABEL_SMALL_FONT;
       ctx!.fillStyle = crossed ? "#e05050" : "#c44040";
       ctx!.textAlign = "right";
@@ -111,61 +141,148 @@ export function InstrumentDisplay() {
       ctx!.letterSpacing = "0.15em";
       ctx!.fillText("THRESHOLD \u25B4", plotR - 2, threshY + 5);
 
-      // Waveform
+      // Clip to plot area for waveforms
+      ctx!.save();
       ctx!.beginPath();
-      ctx!.strokeStyle = crossed ? "#5cb86c" : "#4a9a5a";
-      ctx!.lineWidth = 1.5;
-      ctx!.lineJoin = "round";
-      ctx!.lineCap = "round";
-      const points = 80;
+      ctx!.rect(plotL, plotT, plotW, plotH);
+      ctx!.clip();
+
+      // Draw each wave group — layered sinusoids with additive glow
+      const points = 300;
+      for (const group of waveGroups) {
+        // Compute composite waveform for this group
+        const vals: number[] = [];
+        for (let i = 0; i <= points; i++) {
+          const frac = i / points;
+          const xWorld = frac * 12 - time * 1.2; // scrolls left
+          let sum = 0;
+          for (const layer of group.layers) {
+            const f = layer.freq + Math.sin(time * 0.1) * layer.drift;
+            sum += Math.sin(xWorld * f + time * layer.speed + layer.phase) * layer.amp;
+          }
+          vals.push(sum * env * group.weight);
+        }
+
+        // Filled glow under the wave
+        ctx!.beginPath();
+        ctx!.moveTo(plotL, centerY);
+        for (let i = 0; i <= points; i++) {
+          const x = plotL + (i / points) * plotW;
+          ctx!.lineTo(x, centerY - vals[i] * maxAmpPx);
+        }
+        ctx!.lineTo(plotR, centerY);
+        ctx!.closePath();
+
+        const grad = ctx!.createLinearGradient(0, centerY - maxAmpPx, 0, centerY);
+        grad.addColorStop(0, `rgba(${group.color}, 0.12)`);
+        grad.addColorStop(1, `rgba(${group.color}, 0.0)`);
+        ctx!.fillStyle = grad;
+        ctx!.fill();
+
+        // Bottom mirror glow
+        ctx!.beginPath();
+        ctx!.moveTo(plotL, centerY);
+        for (let i = 0; i <= points; i++) {
+          const x = plotL + (i / points) * plotW;
+          ctx!.lineTo(x, centerY + vals[i] * maxAmpPx * 0.7);
+        }
+        ctx!.lineTo(plotR, centerY);
+        ctx!.closePath();
+
+        const grad2 = ctx!.createLinearGradient(0, centerY, 0, centerY + maxAmpPx);
+        grad2.addColorStop(0, `rgba(${group.color}, 0.0)`);
+        grad2.addColorStop(1, `rgba(${group.color}, 0.08)`);
+        ctx!.fillStyle = grad2;
+        ctx!.fill();
+
+        // Stroke the wave line
+        ctx!.beginPath();
+        ctx!.strokeStyle = `rgba(${group.color}, ${0.3 + group.weight * 0.5})`;
+        ctx!.lineWidth = 1 + group.weight * 0.5;
+        ctx!.lineJoin = "round";
+        for (let i = 0; i <= points; i++) {
+          const x = plotL + (i / points) * plotW;
+          const y = centerY - vals[i] * maxAmpPx;
+          if (i === 0) ctx!.moveTo(x, y);
+          else ctx!.lineTo(x, y);
+        }
+        ctx!.stroke();
+      }
+
+      // Constructive interference glow — where waves align, brighten the area
+      // Compute sum of all groups at each point
+      ctx!.beginPath();
+      const sumVals: number[] = [];
       for (let i = 0; i <= points; i++) {
         const frac = i / points;
-        const x = plotL + frac * plotW;
-        const val = sampleWaveform(frac * 10, time, amp);
-        const y = centerY - val * plotH * 0.45;
-        if (i === 0) ctx!.moveTo(x, y);
-        else ctx!.lineTo(x, y);
+        const xWorld = frac * 12 - time * 1.2;
+        let total = 0;
+        for (const group of waveGroups) {
+          let sum = 0;
+          for (const layer of group.layers) {
+            const f = layer.freq + Math.sin(time * 0.1) * layer.drift;
+            sum += Math.sin(xWorld * f + time * layer.speed + layer.phase) * layer.amp;
+          }
+          total += sum * group.weight;
+        }
+        sumVals.push(total * env);
       }
-      ctx!.stroke();
 
-      // REC indicator — circle then text, top-right
-      const recX = plotR - 4;
-      const recY = plotT + 10;
+      // Draw bright composite where amplitude is high
+      for (let i = 0; i < points; i++) {
+        const intensity = Math.abs(sumVals[i]);
+        if (intensity > 0.25) {
+          const x = plotL + (i / points) * plotW;
+          const y = centerY - sumVals[i] * maxAmpPx;
+          const alpha = Math.min(1, (intensity - 0.25) * 2);
+          ctx!.fillStyle = `rgba(130, 230, 140, ${alpha * 0.4})`;
+          ctx!.beginPath();
+          ctx!.arc(x, y, 2 + intensity * 3, 0, Math.PI * 2);
+          ctx!.fill();
+        }
+      }
+
+      ctx!.restore(); // unclip
+
+      // Center line
+      ctx!.strokeStyle = "#2a2a30";
+      ctx!.lineWidth = 0.5;
+      drawLine(ctx!, plotL, centerY, plotR, centerY);
+
+      // REC indicator
+      const recY = plotT + 12;
       ctx!.fillStyle = crossed ? "#e05050" : "#c44040";
       ctx!.beginPath();
-      ctx!.arc(recX - 30, recY, crossed ? 5 : 3.5, 0, Math.PI * 2);
+      ctx!.arc(plotR - 42, recY, crossed ? 5 : 3.5, 0, Math.PI * 2);
       ctx!.fill();
       ctx!.font = LABEL_FONT;
       ctx!.textAlign = "right";
       ctx!.textBaseline = "middle";
       ctx!.letterSpacing = "0.15em";
-      ctx!.fillText("REC", recX, recY);
+      ctx!.fillText("REC", plotR - 6, recY);
 
-      // SHH flash
+      // SHH!
       if (crossed) {
         ctx!.save();
         ctx!.font = SHH_FONT;
         ctx!.textAlign = "center";
         ctx!.textBaseline = "middle";
         ctx!.letterSpacing = "0.25em";
-
-        // Glow layers
         ctx!.shadowColor = "#e05050";
-        ctx!.shadowBlur = 20;
+        ctx!.shadowBlur = 24;
         ctx!.fillStyle = "#e05050";
         ctx!.fillText("SHH!", plotL + plotW / 2, plotT + 22);
-        ctx!.shadowBlur = 10;
-        ctx!.fillText("SHH!", plotL + plotW / 2, plotT + 22);
-        ctx!.shadowBlur = 0;
+        ctx!.shadowBlur = 8;
         ctx!.fillStyle = "#ff7070";
         ctx!.fillText("SHH!", plotL + plotW / 2, plotT + 22);
         ctx!.restore();
       }
 
-      // Corner axis labels
+      // Axis labels
       ctx!.font = LABEL_SMALL_FONT;
       ctx!.fillStyle = "#4a4a52";
       ctx!.letterSpacing = "0.12em";
+      ctx!.shadowBlur = 0;
 
       ctx!.textAlign = "left";
       ctx!.textBaseline = "top";
@@ -179,15 +296,15 @@ export function InstrumentDisplay() {
     }
 
     if (prefersReduced) {
-      draw(4.0); // static snapshot at a calm moment
+      draw(2.0);
       return;
     }
 
     startRef.current = performance.now();
 
     function tick() {
-      const elapsed = (performance.now() - startRef.current) / 1000;
-      draw(elapsed);
+      const now = (performance.now() - startRef.current) / 1000;
+      draw(now);
       frameRef.current = requestAnimationFrame(tick);
     }
 
@@ -209,30 +326,21 @@ export function InstrumentDisplay() {
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-  fill: string,
-  stroke: string,
-  lineWidth: number,
+  x: number, y: number, w: number, h: number,
+  r: number, fill: string, stroke: string, lw: number,
 ) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   ctx.fillStyle = fill;
   ctx.fill();
   ctx.strokeStyle = stroke;
-  ctx.lineWidth = lineWidth;
+  ctx.lineWidth = lw;
   ctx.stroke();
 }
 
-function line(
+function drawLine(
   ctx: CanvasRenderingContext2D,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
+  x1: number, y1: number, x2: number, y2: number,
 ) {
   ctx.beginPath();
   ctx.moveTo(x1, y1);
