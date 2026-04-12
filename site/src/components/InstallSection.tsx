@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/colors.stylex.ts";
@@ -14,35 +15,42 @@ const platformTabs: { value: Platform; label: string }[] = [
   { value: "windows", label: "Windows" },
 ];
 
-const instructions: Record<
+const REPO = "https://github.com/jchook/shhh";
+const LATEST = `${REPO}/releases/latest/download`;
+
+const platforms: Record<
   Platform,
-  { label: string; steps: string[]; command: string }
+  { downloadUrl: string; downloadLabel: string; cargo: ComponentChildren }
 > = {
   macos: {
-    label: "macOS",
-    steps: [
-      "Install via Cargo (requires Rust toolchain):",
-      "Or download a prebuilt binary from GitHub Releases.",
-    ],
-    command: "cargo install shhh",
+    downloadUrl: `${LATEST}/shhh-darwin`,
+    downloadLabel: "Download for macOS",
+    cargo: (
+      <>
+        <CodeBlock>cargo install shhh</CodeBlock>
+      </>
+    ),
   },
   linux: {
-    label: "Linux",
-    steps: [
-      "Install audio dependencies first:",
-      "Then install via Cargo:",
-      "Or download a prebuilt binary from GitHub Releases.",
-    ],
-    command:
-      "sudo apt install libasound2-dev pkg-config\ncargo install shhh",
+    downloadUrl: `${LATEST}/shhh-linux`,
+    downloadLabel: "Download for Linux",
+    cargo: (
+      <>
+        <Step>Install audio dependencies first:</Step>
+        <CodeBlock>sudo apt install libasound2-dev pkg-config</CodeBlock>
+        <Step>Then install via Cargo:</Step>
+        <CodeBlock>cargo install shhh</CodeBlock>
+      </>
+    ),
   },
   windows: {
-    label: "Windows",
-    steps: [
-      "Install via Cargo (requires Rust toolchain):",
-      "Or download a prebuilt .exe from GitHub Releases.",
-    ],
-    command: "cargo install shhh",
+    downloadUrl: `${LATEST}/shhh-windows.exe`,
+    downloadLabel: "Download for Windows",
+    cargo: (
+      <>
+        <CodeBlock>cargo install shhh</CodeBlock>
+      </>
+    ),
   },
 };
 
@@ -58,29 +66,71 @@ const styles = stylex.create({
     textAlign: "center",
   },
   heading: {
-    fontSize: typography.text3xl,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    letterSpacing: "-0.02em",
+    fontFamily: typography.fontMono,
+    fontSize: typography.monoLabel,
+    textTransform: "uppercase",
+    letterSpacing: typography.labelSpacing,
+    color: colors.textSecondary,
   },
   subhead: {
     fontSize: typography.textBase,
     color: colors.textSecondary,
     marginTop: spacing.sm,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   tabWrap: {
     marginBottom: spacing.lg,
   },
-  content: {
+  buttons: {
+    display: "flex",
+    justifyContent: "center",
+    gap: spacing.md,
+    marginBottom: spacing.xl,
+    flexWrap: "wrap",
+  },
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    gap: spacing.md,
+    width: "100%",
+    maxWidth: "560px",
+    marginBottom: spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: "1px",
+    backgroundColor: colors.borderDefault,
+  },
+  dividerText: {
+    fontFamily: typography.fontMono,
+    fontSize: typography.textXs,
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+  },
+  cargoLabel: {
+    fontFamily: typography.fontMono,
+    fontSize: typography.textXs,
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    marginBottom: spacing.md,
+  },
+  cargoContent: {
     textAlign: "left",
     maxWidth: "560px",
-    marginInline: "auto",
+    width: "100%",
     backgroundColor: colors.bgPanel,
     border: `1px solid ${colors.borderDefault}`,
     borderRadius: "8px",
     padding: spacing.lg,
     marginBottom: spacing.xl,
+  },
+  footer: {
+    fontFamily: typography.fontMono,
+    fontSize: typography.textXs,
+    color: colors.textSecondary,
+    letterSpacing: "0.05em",
   },
   step: {
     fontSize: typography.textSm,
@@ -99,26 +149,19 @@ const styles = stylex.create({
     whiteSpace: "pre",
     marginBottom: spacing.md,
   },
-  buttons: {
-    display: "flex",
-    justifyContent: "center",
-    gap: spacing.md,
-    marginBottom: spacing.xl,
-    flexWrap: "wrap",
-  },
-  footer: {
-    fontFamily: typography.fontMono,
-    fontSize: typography.textXs,
-    color: colors.textSecondary,
-    letterSpacing: "0.05em",
-  },
 });
 
-const platforms: Platform[] = ["macos", "linux", "windows"];
+function Step({ children }: { children: ComponentChildren }) {
+  return <p {...stylex.props(styles.step)}>{children}</p>;
+}
+
+function CodeBlock({ children }: { children: ComponentChildren }) {
+  return <div {...stylex.props(styles.codeBlock)}>{children}</div>;
+}
 
 export function InstallSection() {
   const [active, setActive] = useState<Platform>("macos");
-  const info = instructions[active];
+  const info = platforms[active];
 
   return (
     <section id="install" {...stylex.props(styles.section)}>
@@ -131,33 +174,32 @@ export function InstallSection() {
         <TabGroup tabs={platformTabs} active={active} onSelect={setActive} />
       </div>
 
-      <div {...stylex.props(styles.content)}>
-        {info.steps.map((step, i) => (
-          <p key={i} {...stylex.props(styles.step)}>
-            {step}
-          </p>
-        ))}
-        <div {...stylex.props(styles.codeBlock)}>{info.command}</div>
-      </div>
-
       <div {...stylex.props(styles.buttons)}>
         <a
-          href="https://github.com/jchook/shhh/releases"
-          target="_blank"
-          rel="noopener noreferrer"
+          href={info.downloadUrl}
           {...stylex.props(button.base, button.primary)}
         >
-          Download
+          {info.downloadLabel}
         </a>
         <a
-          href="https://github.com/jchook/shhh"
+          href={`${REPO}#installation`}
           target="_blank"
           rel="noopener noreferrer"
           {...stylex.props(button.base, button.secondary)}
         >
-          View on GitHub
+          Read the docs
         </a>
       </div>
+
+      <div {...stylex.props(styles.divider)}>
+        <div {...stylex.props(styles.dividerLine)} />
+        <span {...stylex.props(styles.dividerText)}>or</span>
+        <div {...stylex.props(styles.dividerLine)} />
+      </div>
+
+      <div {...stylex.props(styles.cargoLabel)}>Install via Cargo</div>
+
+      <div {...stylex.props(styles.cargoContent)}>{info.cargo}</div>
 
       <p {...stylex.props(styles.footer)}>
         Set your threshold. Start monitoring. Stop waking people up.

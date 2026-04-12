@@ -4,6 +4,7 @@ import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
 import { button } from "../styles/common.ts";
 import { InstrumentDisplay } from "./InstrumentDisplay.tsx";
+import { Shhh } from "./Shhh.tsx";
 
 const styles = stylex.create({
   section: {
@@ -94,7 +95,7 @@ export function Hero() {
           </h1>
           <p {...stylex.props(styles.body)}>
             shh.mom listens to your microphone, measures loudness in real time,
-            and says "SHH" when you cross a threshold you control.
+            and says <Shhh /> when you cross a threshold you control.
           </p>
           <div {...stylex.props(styles.cta)}>
             <a href="#install" {...stylex.props(button.base, button.primary)}>

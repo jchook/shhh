@@ -1,9 +1,11 @@
+import type { ComponentChildren } from "preact";
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/colors.stylex.ts";
 import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
+import { Shhh } from "./Shhh.tsx";
 
-const steps = [
+const steps: { label: string; title: string; body: ComponentChildren; icon: string }[] = [
   {
     label: "INPUT",
     title: "Listen",
@@ -19,7 +21,7 @@ const steps = [
   {
     label: "ALERT",
     title: "Warn",
-    body: 'Plays "SHH" and can optionally trigger OS notifications.',
+    body: <>Plays <Shhh /> and can optionally trigger OS notifications.</>,
     icon: "\u25B2",
   },
 ];

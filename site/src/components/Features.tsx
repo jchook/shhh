@@ -1,12 +1,14 @@
+import type { ComponentChildren } from "preact";
 import * as stylex from "@stylexjs/stylex";
 import { colors } from "../styles/colors.stylex.ts";
 import { spacing } from "../styles/spacing.stylex.ts";
 import { typography } from "../styles/typography.stylex.ts";
+import { Shhh } from "./Shhh.tsx";
 
-const features = [
+const features: { label: string; title: ComponentChildren; body: ComponentChildren }[] = [
   {
     label: "AUDIO",
-    title: 'Actually says "SHH"',
+    title: <>Actually says <Shhh /></>,
     body: "Not just a meter. When you cross the line, it tells you.",
   },
   {
@@ -44,12 +46,13 @@ const styles = stylex.create({
     marginInline: "auto",
   },
   heading: {
-    fontSize: typography.text3xl,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginBottom: spacing.xxl,
+    fontFamily: typography.fontMono,
+    fontSize: typography.monoLabel,
+    textTransform: "uppercase",
+    letterSpacing: typography.labelSpacing,
+    color: colors.textSecondary,
     textAlign: "center",
-    letterSpacing: "-0.02em",
+    marginBottom: spacing.xxl,
   },
   grid: {
     display: "grid",

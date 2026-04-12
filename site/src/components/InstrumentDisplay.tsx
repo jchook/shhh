@@ -50,7 +50,7 @@ export function InstrumentDisplay() {
 
     const LABEL_FONT = "500 9px 'Inter', sans-serif";
     const LABEL_SMALL_FONT = "500 8px 'Inter', sans-serif";
-    const SHH_FONT = "600 22px 'Inter', sans-serif";
+    const SHH_FONT = "italic 600 22px 'JetBrains Mono', monospace";
 
     const rng = mulberry32(42);
     const groups = [
@@ -236,10 +236,10 @@ export function InstrumentDisplay() {
         ctx!.shadowColor = "#e05050";
         ctx!.shadowBlur = 16 + crossedSmooth * 12;
         ctx!.fillStyle = "#e05050";
-        ctx!.fillText("SHH!", plotL + plotW / 2, plotT + 22);
+        ctx!.fillText("shhh!", plotL + plotW / 2, plotT + 22);
         ctx!.shadowBlur = 6;
         ctx!.fillStyle = `rgba(255, 112, 112, ${crossedSmooth})`;
-        ctx!.fillText("SHH!", plotL + plotW / 2, plotT + 22);
+        ctx!.fillText("shhh!", plotL + plotW / 2, plotT + 22);
         ctx!.restore();
       }
 
